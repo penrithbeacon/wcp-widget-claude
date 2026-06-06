@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Usage — Claude Analytics</title>
+<script type="application/ld+json">{{ jsonld|safe }}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#0d1117);
+  color:var(--wcp-color-text,#e6edf3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;}
+
+/* ── Themed scrollbars ──────────────────────────────────────────── */
+*::-webkit-scrollbar{width:8px;height:8px;}
+*::-webkit-scrollbar-track{background:var(--wcp-color-surface-raised,#1c2128);}
+*::-webkit-scrollbar-thumb{background:var(--wcp-color-border,#30363d);border-radius:4px;}
+*::-webkit-scrollbar-thumb:hover{background:var(--wcp-color-text-muted,#8b949e);}
+*{scrollbar-color:var(--wcp-color-border,#30363d) var(--wcp-color-surface-raised,#1c2128);scrollbar-width:thin;}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+.instrument{display:flex;height:100%;gap:10px;padding:10px;overflow:hidden;}
+.card{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;
+  border:1px solid var(--wcp-color-border,#30363d);border-radius:8px;background:var(--wcp-color-surface,#161b22);}
+.card-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;border-bottom:1px solid var(--wcp-color-border,#30363d);gap:8px;}
+.card-title{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;min-width:0;}
+.card-title-icon{flex-shrink:0;opacity:.7;font-size:14px;}
+.card-title-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-subtitle{font-size:11px;color:var(--wcp-color-text-muted,#8b949e);font-weight:400;flex-shrink:0;}
+.refresh-btn{background:none;border:none;color:var(--wcp-color-text-muted,#8b949e);cursor:pointer;
+  padding:3px 6px;border-radius:5px;font-size:14px;line-height:1;flex-shrink:0;
+  transition:color .15s,background .15s;}
+.refresh-btn:hover{color:var(--wcp-color-text,#e6edf3);background:var(--wcp-color-surface-raised,#1c2128);}
+.refresh-btn.spinning{animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.card-body{flex:1;overflow-y:auto;padding:8px 12px;}
+
+/* ── Data rows ──────────────────────────────────────────────────── */
+.model-row{padding:8px 0;border-bottom:1px solid rgba(48,54,61,.4);}
+.model-row:last-child{border-bottom:none;}
+.model-name{font-weight:600;font-size:12px;margin-bottom:4px;}
+.token-bar-wrap{display:flex;align-items:center;gap:6px;margin:2px 0;}
+.token-label{font-size:10px;color:var(--wcp-color-text-muted,#8b949e);width:70px;flex-shrink:0;}
+.token-bar{flex:1;height:6px;background:var(--wcp-color-surface-raised,#1c2128);border-radius:3px;overflow:hidden;}
+.token-bar-fill{height:100%;border-radius:3px;transition:width .3s;}
+.bar-input{background:var(--wcp-color-info,#58a6ff);}
+.bar-output{background:var(--wcp-color-primary,#f0883e);}
+.bar-cache-read{background:var(--wcp-color-success,#3fb950);}
+.bar-cache-create{background:var(--wcp-color-warning,#d29922);}
+.token-value{font-size:10px;color:var(--wcp-color-text-muted,#8b949e);width:50px;text-align:right;flex-shrink:0;}
+
+/* ── Cost ────────────────────────────────────────────────────────── */
+.cost-total{font-size:22px;font-weight:700;color:var(--wcp-color-primary,#f0883e);margin:8px 0;}
+.cost-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;
+  border-bottom:1px solid rgba(48,54,61,.3);font-size:12px;}
+.cost-row:last-child{border-bottom:none;}
+.cost-desc{color:var(--wcp-color-text,#e6edf3);}
+.cost-amount{color:var(--wcp-color-text-muted,#8b949e);font-weight:500;}
+
+/* ── Setup prompt ────────────────────────────────────────────────── */
+.setup-prompt{padding:20px;text-align:center;color:var(--wcp-color-text-muted,#8b949e);}
+.setup-prompt h3{color:var(--wcp-color-primary,#f0883e);font-size:13px;margin-bottom:8px;}
+.setup-prompt p{font-size:12px;line-height:1.5;margin-bottom:10px;}
+.setup-link{color:var(--wcp-color-info,#58a6ff);text-decoration:none;font-size:12px;font-weight:500;}
+.setup-link:hover{text-decoration:underline;}
+
+/* ── States ──────────────────────────────────────────────────────── */
+.state-msg{padding:16px 12px;font-size:12px;color:var(--wcp-color-text-muted,#8b949e);}
+.state-error{color:var(--wcp-color-danger,#f85149);}
+</style>
+</head>
+<body>
+<div class="instrument">
+  <!-- Token Usage card -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="card-title-icon">📊</span>
+        <span class="card-title-text">Token Usage</span>
+      </div>
+      <span class="card-subtitle" id="usage-period"></span>
+      <button class="refresh-btn" id="btn-usage" title="Refresh" onclick="loadUsage()">↺</button>
+    </div>
+    <div class="card-body" id="body-usage">
+      {% if has_api_key %}
+      <div class="state-msg">Loading…</div>
+      {% else %}
+      <div class="setup-prompt">
+        <h3>Admin API Key Required</h3>
+        <p>Add your Anthropic Admin API key to see token usage data across all models.</p>
+        <a class="setup-link" href="/widget/settings">Configure in Settings →</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <!-- Cost card -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="card-title-icon">💰</span>
+        <span class="card-title-text">Cost</span>
+      </div>
+      <span class="card-subtitle">Last 7 days</span>
+      <button class="refresh-btn" id="btn-cost" title="Refresh" onclick="loadCost()">↺</button>
+    </div>
+    <div class="card-body" id="body-cost">
+      {% if has_api_key %}
+      <div class="state-msg">Loading…</div>
+      {% else %}
+      <div class="setup-prompt">
+        <h3>Admin API Key Required</h3>
+        <p>Add your Anthropic Admin API key to see cost breakdown by model and type.</p>
+        <a class="setup-link" href="/widget/settings">Configure in Settings →</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+const HAS_API_KEY = {{ 'true' if has_api_key else 'false' }};
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function fmtTokens(n) {
+  if (!n) return '0';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+function fmtCost(n) {
+  if (!n) return '$0.00';
+  return '$' + n.toFixed(2);
+}
+
+function spin(id, on) {
+  const btn = document.getElementById(id);
+  if (on) btn.classList.add('spinning'); else btn.classList.remove('spinning');
+}
+
+// ── Token Usage ──────────────────────────────────────────────────────────────
+
+async function loadUsage() {
+  if (!HAS_API_KEY) return;
+  spin('btn-usage', true);
+  try {
+    const r = await fetch('/widget/api/cloud/usage');
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Failed');
+    renderUsage(j.data);
+  } catch (e) {
+    document.getElementById('body-usage').innerHTML =
+      `<div class="state-msg state-error">${esc(e.message)}</div>`;
+  }
+  spin('btn-usage', false);
+}
+
+function renderUsage(data) {
+  const body = document.getElementById('body-usage');
+  // Aggregate per-model totals from daily buckets
+  const models = {};
+  let maxTotal = 0;
+  const buckets = data.data || data.results || [];
+  buckets.forEach(bucket => {
+    const items = bucket.results || bucket.data || [bucket];
+    items.forEach(item => {
+      const name = item.model || 'unknown';
+      if (!models[name]) models[name] = { input: 0, output: 0, cache_read: 0, cache_create: 0 };
+      models[name].input        += item.input_tokens || 0;
+      models[name].output       += item.output_tokens || 0;
+      models[name].cache_read   += item.input_cached_tokens || item.cache_read_tokens || 0;
+      models[name].cache_create += item.cache_creation_tokens || 0;
+    });
+  });
+  // Find max for bar scaling
+  Object.values(models).forEach(m => {
+    const total = m.input + m.output + m.cache_read + m.cache_create;
+    if (total > maxTotal) maxTotal = total;
+  });
+
+  if (Object.keys(models).length === 0) {
+    body.innerHTML = '<div class="state-msg">No usage data in the last 7 days.</div>';
+    return;
+  }
+
+  const period = document.getElementById('usage-period');
+  period.textContent = 'Last 7 days';
+
+  let html = '';
+  const sorted = Object.entries(models).sort((a, b) => {
+    const ta = a[1].input + a[1].output + a[1].cache_read + a[1].cache_create;
+    const tb = b[1].input + b[1].output + b[1].cache_read + b[1].cache_create;
+    return tb - ta;
+  });
+  sorted.forEach(([name, m]) => {
+    html += `<div class="model-row"><div class="model-name">${esc(name)}</div>`;
+    const bars = [
+      { label: 'Input', val: m.input, cls: 'bar-input' },
+      { label: 'Output', val: m.output, cls: 'bar-output' },
+      { label: 'Cache read', val: m.cache_read, cls: 'bar-cache-read' },
+      { label: 'Cache create', val: m.cache_create, cls: 'bar-cache-create' },
+    ];
+    bars.forEach(b => {
+      if (b.val === 0) return;
+      const pct = maxTotal > 0 ? (b.val / maxTotal * 100).toFixed(1) : 0;
+      html += `<div class="token-bar-wrap">
+        <span class="token-label">${b.label}</span>
+        <div class="token-bar"><div class="token-bar-fill ${b.cls}" style="width:${pct}%"></div></div>
+        <span class="token-value">${fmtTokens(b.val)}</span>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  body.innerHTML = html;
+}
+
+// ── Cost ─────────────────────────────────────────────────────────────────────
+
+async function loadCost() {
+  if (!HAS_API_KEY) return;
+  spin('btn-cost', true);
+  try {
+    const r = await fetch('/widget/api/cloud/cost');
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Failed');
+    renderCost(j.data);
+  } catch (e) {
+    document.getElementById('body-cost').innerHTML =
+      `<div class="state-msg state-error">${esc(e.message)}</div>`;
+  }
+  spin('btn-cost', false);
+}
+
+function renderCost(data) {
+  const body = document.getElementById('body-cost');
+  const buckets = data.data || data.results || [];
+  // Aggregate by description
+  const costs = {};
+  let total = 0;
+  buckets.forEach(bucket => {
+    const items = bucket.results || bucket.data || [bucket];
+    items.forEach(item => {
+      const desc = item.description || item.cost_type || 'Other';
+      const amt = item.cost_usd || item.amount || 0;
+      costs[desc] = (costs[desc] || 0) + amt;
+      total += amt;
+    });
+  });
+
+  if (total === 0) {
+    body.innerHTML = '<div class="state-msg">No cost data in the last 7 days.</div>';
+    return;
+  }
+
+  let html = `<div class="cost-total">${fmtCost(total)}</div>`;
+  const sorted = Object.entries(costs).sort((a, b) => b[1] - a[1]);
+  sorted.forEach(([desc, amt]) => {
+    html += `<div class="cost-row">
+      <span class="cost-desc">${esc(desc)}</span>
+      <span class="cost-amount">${fmtCost(amt)}</span>
+    </div>`;
+  });
+  body.innerHTML = html;
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+function _applyThemeVars(vars) {
+  for (const [k, v] of Object.entries(vars))
+    document.documentElement.style.setProperty(k, v);
+}
+window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
+window.addEventListener('message', e => {
+  if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);
+  if (e.data?.type === 'wcp:theme' && e.data.vars)    _applyThemeVars(e.data.vars);
+});
+
+if (HAS_API_KEY) { loadUsage(); loadCost(); }
+</script>
+</body>
+</html>

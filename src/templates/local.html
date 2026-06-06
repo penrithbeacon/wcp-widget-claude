@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local — Claude Analytics</title>
+<script type="application/ld+json">{{ jsonld|safe }}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#0d1117);
+  color:var(--wcp-color-text,#e6edf3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;}
+
+/* ── Themed scrollbars ──────────────────────────────────────────── */
+*::-webkit-scrollbar{width:8px;height:8px;}
+*::-webkit-scrollbar-track{background:var(--wcp-color-surface-raised,#1c2128);}
+*::-webkit-scrollbar-thumb{background:var(--wcp-color-border,#30363d);border-radius:4px;}
+*::-webkit-scrollbar-thumb:hover{background:var(--wcp-color-text-muted,#8b949e);}
+*{scrollbar-color:var(--wcp-color-border,#30363d) var(--wcp-color-surface-raised,#1c2128);scrollbar-width:thin;}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+.instrument{display:flex;flex-direction:column;height:100%;gap:10px;padding:10px;overflow:hidden;}
+.row{display:flex;gap:10px;flex:1;min-height:0;}
+.card{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;
+  border:1px solid var(--wcp-color-border,#30363d);border-radius:8px;background:var(--wcp-color-surface,#161b22);}
+.card-full{flex:none;}
+.card-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;border-bottom:1px solid var(--wcp-color-border,#30363d);gap:8px;}
+.card-title{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;min-width:0;}
+.card-title-icon{flex-shrink:0;opacity:.7;font-size:14px;}
+.card-title-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-subtitle{font-size:11px;color:var(--wcp-color-text-muted,#8b949e);font-weight:400;flex-shrink:0;}
+.refresh-btn{background:none;border:none;color:var(--wcp-color-text-muted,#8b949e);cursor:pointer;
+  padding:3px 6px;border-radius:5px;font-size:14px;line-height:1;flex-shrink:0;
+  transition:color .15s,background .15s;}
+.refresh-btn:hover{color:var(--wcp-color-text,#e6edf3);background:var(--wcp-color-surface-raised,#1c2128);}
+.refresh-btn.spinning{animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.card-body{flex:1;overflow-y:auto;padding:8px 12px;}
+
+/* ── Rows ────────────────────────────────────────────────────────── */
+.item-row{display:flex;align-items:center;gap:8px;padding:6px 0;
+  border-bottom:1px solid rgba(48,54,61,.3);font-size:12px;}
+.item-row:last-child{border-bottom:none;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot-green{background:var(--wcp-color-success,#3fb950);}
+.dot-yellow{background:var(--wcp-color-warning,#d29922);}
+.dot-red{background:var(--wcp-color-danger,#f85149);}
+.dot-grey{background:var(--wcp-color-text-muted,#8b949e);}
+.item-name{font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.item-detail{font-size:11px;color:var(--wcp-color-text-muted,#8b949e);flex-shrink:0;}
+
+/* ── System info ─────────────────────────────────────────────────── */
+.sys-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.sys-item{background:var(--wcp-color-surface-raised,#1c2128);border-radius:6px;padding:8px 10px;}
+.sys-label{font-size:10px;color:var(--wcp-color-text-muted,#8b949e);margin-bottom:2px;}
+.sys-value{font-size:12px;font-weight:500;word-break:break-all;}
+
+/* ── Setup prompt ────────────────────────────────────────────────── */
+.setup-prompt{padding:20px;text-align:center;color:var(--wcp-color-text-muted,#8b949e);}
+.setup-prompt h3{color:var(--wcp-color-primary,#f0883e);font-size:13px;margin-bottom:8px;}
+.setup-prompt p{font-size:12px;line-height:1.5;margin-bottom:10px;}
+.setup-link{color:var(--wcp-color-info,#58a6ff);text-decoration:none;font-size:12px;font-weight:500;}
+.setup-link:hover{text-decoration:underline;}
+
+.state-msg{padding:16px 12px;font-size:12px;color:var(--wcp-color-text-muted,#8b949e);}
+.state-error{color:var(--wcp-color-danger,#f85149);}
+</style>
+</head>
+<body>
+<div class="instrument">
+  <div class="row">
+    <!-- MCP Servers card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">🔌</span>
+          <span class="card-title-text">MCP Servers</span>
+        </div>
+        <span class="card-subtitle" id="mcp-count"></span>
+        <button class="refresh-btn" id="btn-mcp" title="Refresh" onclick="loadMcp()">↺</button>
+      </div>
+      <div class="card-body" id="body-mcp">
+        {% if has_agent %}
+        <div class="state-msg">Loading…</div>
+        {% else %}
+        <div class="setup-prompt">
+          <h3>Host Agent Required</h3>
+          <p>Install the Claude Analytics host agent to see your MCP server configuration.</p>
+          <a class="setup-link" href="/widget/settings">Install Agent →</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <!-- Plugins card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="card-title-icon">🧩</span>
+          <span class="card-title-text">Plugins</span>
+        </div>
+        <span class="card-subtitle" id="plugins-count"></span>
+        <button class="refresh-btn" id="btn-plugins" title="Refresh" onclick="loadPlugins()">↺</button>
+      </div>
+      <div class="card-body" id="body-plugins">
+        {% if has_agent %}
+        <div class="state-msg">Loading…</div>
+        {% else %}
+        <div class="setup-prompt">
+          <h3>Host Agent Required</h3>
+          <p>Install the Claude Analytics host agent to see your installed plugins.</p>
+          <a class="setup-link" href="/widget/settings">Install Agent →</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <!-- System card (full width) -->
+  <div class="card card-full" style="max-height:140px;">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="card-title-icon">💻</span>
+        <span class="card-title-text">System</span>
+      </div>
+      <button class="refresh-btn" id="btn-sys" title="Refresh" onclick="loadSystem()">↺</button>
+    </div>
+    <div class="card-body" id="body-sys">
+      {% if has_agent %}
+      <div class="state-msg">Loading…</div>
+      {% else %}
+      <div class="setup-prompt">
+        <h3>Host Agent Required</h3>
+        <p>Install the host agent to see system information.</p>
+        <a class="setup-link" href="/widget/settings">Install Agent →</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+const HAS_AGENT = {{ 'true' if has_agent else 'false' }};
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function spin(id, on) {
+  const btn = document.getElementById(id);
+  if (on) btn.classList.add('spinning'); else btn.classList.remove('spinning');
+}
+
+// ── MCP Servers ──────────────────────────────────────────────────────────────
+
+async function loadMcp() {
+  if (!HAS_AGENT) return;
+  spin('btn-mcp', true);
+  try {
+    const r = await fetch('/widget/api/agent/mcp');
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Failed');
+    renderMcp(j.data);
+  } catch (e) {
+    document.getElementById('body-mcp').innerHTML =
+      `<div class="state-msg state-error">${esc(e.message)}</div>`;
+  }
+  spin('btn-mcp', false);
+}
+
+function renderMcp(data) {
+  const body = document.getElementById('body-mcp');
+  const servers = data.servers || [];
+  document.getElementById('mcp-count').textContent = servers.length + ' servers';
+
+  if (servers.length === 0) {
+    body.innerHTML = '<div class="state-msg">No MCP servers configured.</div>';
+    return;
+  }
+
+  let html = '';
+  servers.forEach(s => {
+    const dot = s.status === 'connected' ? 'dot-green' :
+                s.status === 'error' ? 'dot-red' : 'dot-yellow';
+    html += `<div class="item-row">
+      <span class="dot ${dot}"></span>
+      <span class="item-name">${esc(s.name)}</span>
+      <span class="item-detail">${esc(s.type || s.transport || '')}</span>
+    </div>`;
+  });
+  body.innerHTML = html;
+}
+
+// ── Plugins ──────────────────────────────────────────────────────────────────
+
+async function loadPlugins() {
+  if (!HAS_AGENT) return;
+  spin('btn-plugins', true);
+  try {
+    const r = await fetch('/widget/api/agent/plugins');
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Failed');
+    renderPlugins(j.data);
+  } catch (e) {
+    document.getElementById('body-plugins').innerHTML =
+      `<div class="state-msg state-error">${esc(e.message)}</div>`;
+  }
+  spin('btn-plugins', false);
+}
+
+function renderPlugins(data) {
+  const body = document.getElementById('body-plugins');
+  const plugins = data.plugins || [];
+  document.getElementById('plugins-count').textContent = plugins.length + ' installed';
+
+  if (plugins.length === 0) {
+    body.innerHTML = '<div class="state-msg">No plugins installed.</div>';
+    return;
+  }
+
+  let html = '';
+  plugins.forEach(p => {
+    const dot = p.enabled !== false ? 'dot-green' : 'dot-grey';
+    html += `<div class="item-row">
+      <span class="dot ${dot}"></span>
+      <span class="item-name">${esc(p.name)}</span>
+      <span class="item-detail">${esc(p.version || '')}</span>
+    </div>`;
+  });
+  body.innerHTML = html;
+}
+
+// ── System ───────────────────────────────────────────────────────────────────
+
+async function loadSystem() {
+  if (!HAS_AGENT) return;
+  spin('btn-sys', true);
+  try {
+    const r = await fetch('/widget/api/agent/system');
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Failed');
+    renderSystem(j.data);
+  } catch (e) {
+    document.getElementById('body-sys').innerHTML =
+      `<div class="state-msg state-error">${esc(e.message)}</div>`;
+  }
+  spin('btn-sys', false);
+}
+
+function renderSystem(data) {
+  const body = document.getElementById('body-sys');
+  const items = [
+    { label: 'Claude CLI', value: data.claude_version || 'N/A' },
+    { label: 'Node.js',    value: data.node_version || 'N/A' },
+    { label: 'Platform',   value: data.platform || 'N/A' },
+    { label: 'Hostname',   value: data.hostname || 'N/A' },
+    { label: 'Memory',     value: data.memory || 'N/A' },
+    { label: 'Uptime',     value: data.uptime || 'N/A' },
+  ];
+
+  let html = '<div class="sys-grid">';
+  items.forEach(i => {
+    html += `<div class="sys-item">
+      <div class="sys-label">${esc(i.label)}</div>
+      <div class="sys-value">${esc(i.value)}</div>
+    </div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+function _applyThemeVars(vars) {
+  for (const [k, v] of Object.entries(vars))
+    document.documentElement.style.setProperty(k, v);
+}
+window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
+window.addEventListener('message', e => {
+  if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);
+  if (e.data?.type === 'wcp:theme' && e.data.vars)    _applyThemeVars(e.data.vars);
+});
+
+if (HAS_AGENT) { loadMcp(); loadPlugins(); loadSystem(); }
+</script>
+</body>
+</html>

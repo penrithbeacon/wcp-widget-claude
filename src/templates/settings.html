@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — Claude Analytics</title>
+<script type="application/ld+json">{{ jsonld|safe }}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#0d1117);
+  color:var(--wcp-color-text,#e6edf3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;}
+
+/* ── Themed scrollbars ──────────────────────────────────────────── */
+*::-webkit-scrollbar{width:8px;height:8px;}
+*::-webkit-scrollbar-track{background:var(--wcp-color-surface-raised,#1c2128);}
+*::-webkit-scrollbar-thumb{background:var(--wcp-color-border,#30363d);border-radius:4px;}
+*::-webkit-scrollbar-thumb:hover{background:var(--wcp-color-text-muted,#8b949e);}
+*{scrollbar-color:var(--wcp-color-border,#30363d) var(--wcp-color-surface-raised,#1c2128);scrollbar-width:thin;}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+.instrument{display:flex;height:100%;padding:10px;overflow:hidden;}
+.card{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;
+  border:1px solid var(--wcp-color-border,#30363d);border-radius:8px;background:var(--wcp-color-surface,#161b22);}
+.card-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;border-bottom:1px solid var(--wcp-color-border,#30363d);gap:8px;}
+.card-title{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;min-width:0;}
+.card-title-icon{flex-shrink:0;opacity:.7;font-size:14px;}
+.card-title-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-body{flex:1;overflow-y:auto;padding:16px;}
+
+/* ── Sections ────────────────────────────────────────────────────── */
+.section{margin-bottom:24px;}
+.section:last-child{margin-bottom:0;}
+.section-title{font-size:12px;font-weight:700;color:var(--wcp-color-primary,#f0883e);
+  text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;
+  padding-bottom:6px;border-bottom:1px solid var(--wcp-color-border,#30363d);}
+.field{margin-bottom:12px;}
+.field-label{font-size:11px;font-weight:600;color:var(--wcp-color-text-muted,#8b949e);margin-bottom:4px;}
+.field-row{display:flex;gap:8px;align-items:center;}
+.field-input{flex:1;padding:7px 10px;font-size:12px;font-family:inherit;
+  background:var(--wcp-color-surface-raised,#1c2128);border:1px solid var(--wcp-color-border,#30363d);
+  border-radius:6px;color:var(--wcp-color-text,#e6edf3);outline:none;transition:border-color .15s;}
+.field-input:focus{border-color:var(--wcp-color-info,#58a6ff);}
+.field-input::placeholder{color:var(--wcp-color-text-muted,#8b949e);opacity:.6;}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.btn{padding:7px 14px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;
+  border:1px solid var(--wcp-color-border,#30363d);background:var(--wcp-color-surface-raised,#1c2128);
+  color:var(--wcp-color-text,#e6edf3);transition:background .15s,border-color .15s;}
+.btn:hover{background:var(--wcp-color-surface,#161b22);border-color:var(--wcp-color-text-muted,#8b949e);}
+.btn:disabled{opacity:.4;cursor:default;}
+.btn-primary{background:var(--wcp-color-primary,#f0883e);color:#000;border-color:var(--wcp-color-primary,#f0883e);}
+.btn-primary:hover{opacity:.9;}
+
+/* ── Status indicators ───────────────────────────────────────────── */
+.status{display:inline-flex;align-items:center;gap:5px;font-size:11px;margin-top:6px;min-height:16px;}
+.status-ok{color:var(--wcp-color-success,#3fb950);}
+.status-err{color:var(--wcp-color-danger,#f85149);}
+.status-pending{color:var(--wcp-color-text-muted,#8b949e);}
+
+/* ── Downloads ───────────────────────────────────────────────────── */
+.download-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.download-card{background:var(--wcp-color-surface-raised,#1c2128);border:1px solid var(--wcp-color-border,#30363d);
+  border-radius:6px;padding:12px;text-align:center;}
+.download-card-title{font-size:11px;font-weight:600;margin-bottom:4px;}
+.download-card-desc{font-size:10px;color:var(--wcp-color-text-muted,#8b949e);margin-bottom:8px;}
+.download-card .btn{font-size:11px;padding:5px 10px;}
+.download-card-disabled{opacity:.4;}
+.download-card-disabled .btn{cursor:default;pointer-events:none;}
+
+.help-text{font-size:11px;color:var(--wcp-color-text-muted,#8b949e);line-height:1.5;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="instrument">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="card-title-icon">⚙️</span>
+        <span class="card-title-text">Settings</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <!-- Cloud API section -->
+      <div class="section">
+        <div class="section-title">Cloud API (Anthropic Admin)</div>
+        <div class="field">
+          <div class="field-label">Admin API Key</div>
+          <div class="field-row">
+            <input type="password" class="field-input" id="input-api-key"
+                   placeholder="sk-ant-admin-..." autocomplete="off">
+            <button class="btn" id="btn-test-api" onclick="testApi()">Test</button>
+            <button class="btn btn-primary" id="btn-save-api" onclick="saveApiKey()">Save</button>
+          </div>
+          <div class="status" id="status-api"></div>
+          <div class="help-text">
+            Get your Admin API key from
+            <a href="https://console.anthropic.com/settings/admin-keys" style="color:var(--wcp-color-info,#58a6ff);" target="_blank">console.anthropic.com</a>.
+            Required for Usage and Productivity instruments.
+          </div>
+        </div>
+      </div>
+
+      <!-- Host Agent section -->
+      <div class="section">
+        <div class="section-title">Host Agent</div>
+        <div class="field">
+          <div class="field-label">Agent URL</div>
+          <div class="field-row">
+            <input type="text" class="field-input" id="input-agent-url"
+                   placeholder="http://localhost:3747" autocomplete="off">
+            <button class="btn" id="btn-test-agent" onclick="testAgent()">Test</button>
+            <button class="btn btn-primary" id="btn-save-agent" onclick="saveAgentUrl()">Save</button>
+          </div>
+          <div class="status" id="status-agent"></div>
+          <div class="help-text">
+            The host agent provides local data (MCP servers, plugins, sessions, system info).
+            Download and install it below, then test the connection.
+          </div>
+        </div>
+
+        <!-- Agent downloads -->
+        <div class="field" style="margin-top:16px;">
+          <div class="field-label">Download Agent</div>
+          <div class="download-grid">
+            <div class="download-card">
+              <div class="download-card-title">macOS (Apple Silicon)</div>
+              <div class="download-card-desc">M1 / M2 / M3 / M4</div>
+              <a class="btn" href="/widget/api/agents/mac-arm64" download>Download</a>
+            </div>
+            <div class="download-card download-card-disabled">
+              <div class="download-card-title">macOS (Intel)</div>
+              <div class="download-card-desc">Coming soon</div>
+              <span class="btn">N/A</span>
+            </div>
+            <div class="download-card download-card-disabled">
+              <div class="download-card-title">Linux (x64)</div>
+              <div class="download-card-desc">Coming soon</div>
+              <span class="btn">N/A</span>
+            </div>
+          </div>
+          <div class="help-text" style="margin-top:10px;">
+            Extract the zip and run <code style="background:var(--wcp-color-surface-raised,#1c2128);padding:1px 5px;border-radius:3px;">./install.sh</code>
+            to install the agent as a background service. It runs on port 3747 by default.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Load current settings ────────────────────────────────────────────────────
+
+async function loadSettings() {
+  try {
+    const r = await fetch('/widget/api/settings');
+    const j = await r.json();
+    if (!j.success) return;
+    const d = j.data;
+    const keyInput = document.getElementById('input-api-key');
+    const urlInput = document.getElementById('input-agent-url');
+    if (d.admin_api_key_set) keyInput.value = d.admin_api_key; // masked "••••••••"
+    if (d.agent_url) urlInput.value = d.agent_url;
+  } catch {}
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────────
+
+async function saveApiKey() {
+  const key = document.getElementById('input-api-key').value.trim();
+  if (!key) return;
+  const statusEl = document.getElementById('status-api');
+  statusEl.className = 'status status-pending';
+  statusEl.textContent = 'Saving…';
+  try {
+    const r = await fetch('/widget/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_api_key: key }),
+    });
+    const j = await r.json();
+    if (j.success) {
+      statusEl.className = 'status status-ok';
+      statusEl.textContent = '✓ Saved';
+    } else {
+      throw new Error(j.error || 'Save failed');
+    }
+  } catch (e) {
+    statusEl.className = 'status status-err';
+    statusEl.textContent = '✗ ' + e.message;
+  }
+}
+
+async function saveAgentUrl() {
+  const url = document.getElementById('input-agent-url').value.trim();
+  if (!url) return;
+  const statusEl = document.getElementById('status-agent');
+  statusEl.className = 'status status-pending';
+  statusEl.textContent = 'Saving…';
+  try {
+    const r = await fetch('/widget/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_url: url }),
+    });
+    const j = await r.json();
+    if (j.success) {
+      statusEl.className = 'status status-ok';
+      statusEl.textContent = '✓ Saved';
+    } else {
+      throw new Error(j.error || 'Save failed');
+    }
+  } catch (e) {
+    statusEl.className = 'status status-err';
+    statusEl.textContent = '✗ ' + e.message;
+  }
+}
+
+// ── Test connections ─────────────────────────────────────────────────────────
+
+async function testApi() {
+  const key = document.getElementById('input-api-key').value.trim();
+  const statusEl = document.getElementById('status-api');
+  statusEl.className = 'status status-pending';
+  statusEl.textContent = 'Testing…';
+  document.getElementById('btn-test-api').disabled = true;
+  try {
+    const r = await fetch('/widget/api/settings/test-api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: key || undefined }),
+    });
+    const j = await r.json();
+    if (j.success) {
+      statusEl.className = 'status status-ok';
+      statusEl.textContent = '✓ Connected — API key is valid';
+    } else {
+      statusEl.className = 'status status-err';
+      statusEl.textContent = '✗ ' + (j.error || 'Connection failed');
+    }
+  } catch (e) {
+    statusEl.className = 'status status-err';
+    statusEl.textContent = '✗ ' + e.message;
+  }
+  document.getElementById('btn-test-api').disabled = false;
+}
+
+async function testAgent() {
+  const url = document.getElementById('input-agent-url').value.trim();
+  const statusEl = document.getElementById('status-agent');
+  statusEl.className = 'status status-pending';
+  statusEl.textContent = 'Testing…';
+  document.getElementById('btn-test-agent').disabled = true;
+  try {
+    const r = await fetch('/widget/api/settings/test-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url || undefined }),
+    });
+    const j = await r.json();
+    if (j.success || j.status === 'ok') {
+      statusEl.className = 'status status-ok';
+      statusEl.textContent = '✓ Connected — agent is running';
+    } else {
+      statusEl.className = 'status status-err';
+      statusEl.textContent = '✗ ' + (j.error || 'Connection failed');
+    }
+  } catch (e) {
+    statusEl.className = 'status status-err';
+    statusEl.textContent = '✗ ' + e.message;
+  }
+  document.getElementById('btn-test-agent').disabled = false;
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+function _applyThemeVars(vars) {
+  for (const [k, v] of Object.entries(vars))
+    document.documentElement.style.setProperty(k, v);
+}
+window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
+window.addEventListener('message', e => {
+  if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);
+  if (e.data?.type === 'wcp:theme' && e.data.vars)    _applyThemeVars(e.data.vars);
+});
+
+loadSettings();
+</script>
+</body>
+</html>

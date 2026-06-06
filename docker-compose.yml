@@ -1,0 +1,23 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# WCP Widget: Claude Analytics
+# Run: docker compose up -d
+# Access: http://localhost:3746/widget/
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  wcp-widget-claude:
+    build: .
+    image: penrithbeacon/wcp-widget-claude:1.0.0-wcp2.1.0
+    container_name: wcp-widget-claude
+    ports:
+      - "3746:3746"
+    volumes:
+      - claude_data:/app/data
+    environment:
+      - CONTAINER_NAME=wcp-widget-claude
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  claude_data:
