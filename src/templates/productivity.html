@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Productivity — Claude Analytics</title>
+<title>API: Productivity (Alpha) — Claude Analytics</title>
 <script type="application/ld+json">{{ jsonld|safe }}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -64,6 +64,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
 .setup-link{color:var(--wcp-color-info,#58a6ff);text-decoration:none;font-size:12px;font-weight:500;}
 .setup-link:hover{text-decoration:underline;}
 
+/* ── Alpha badge ──────────────────────────────────────────────── */
+.alpha-badge{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;padding:2px 6px;border-radius:3px;
+  background:var(--wcp-color-warning,#d29922);color:#000;margin-left:8px;vertical-align:middle;}
+
 .state-msg{padding:16px 12px;font-size:12px;color:var(--wcp-color-text-muted,#8b949e);}
 .state-error{color:var(--wcp-color-danger,#f85149);}
 </style>
@@ -75,7 +80,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
     <div class="card-header">
       <div class="card-title">
         <span class="card-title-icon">⚡</span>
-        <span class="card-title-text">Developer Activity</span>
+        <span class="card-title-text">Developer Activity</span><span class="alpha-badge">Alpha</span>
       </div>
       <span class="card-subtitle">Today</span>
       <button class="refresh-btn" id="btn-activity" title="Refresh" onclick="loadProductivity()">↺</button>
@@ -97,7 +102,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
     <div class="card-header">
       <div class="card-title">
         <span class="card-title-icon">🤖</span>
-        <span class="card-title-text">Model Breakdown</span>
+        <span class="card-title-text">Model Breakdown</span><span class="alpha-badge">Alpha</span>
       </div>
       <span class="card-subtitle">Today</span>
       <button class="refresh-btn" id="btn-models" title="Refresh" onclick="loadProductivity()">↺</button>

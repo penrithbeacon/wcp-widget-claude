@@ -124,28 +124,28 @@ WCP_MANIFEST = {
     },
     'components': [
         {
-            'id': 'claude-usage', 'uuid': '6a27d3da-9c65-449c-a69b-f4d4281d4858',
-            'name': 'Usage', 'role': 'widget',
-            'path': '/widget/usage', 'icon': '/widget/icon.svg',
-            'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
-        },
-        {
-            'id': 'claude-productivity', 'uuid': '14d4519e-2602-44dc-b9d3-b82274355ba2',
-            'name': 'Productivity', 'role': 'widget',
-            'path': '/widget/productivity', 'icon': '/widget/icon.svg',
-            'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
-        },
-        {
-            'id': 'claude-local', 'uuid': '7afca010-82a8-4652-b001-08bd05945f04',
-            'name': 'Local', 'role': 'widget',
+            'id': 'claude-local-environment', 'uuid': '7afca010-82a8-4652-b001-08bd05945f04',
+            'name': 'Local: Environment', 'role': 'widget',
             'path': '/widget/local', 'icon': '/widget/icon.svg',
             'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
         },
         {
-            'id': 'claude-sessions', 'uuid': '760f7625-3d5a-421e-a548-fe3d9296e019',
-            'name': 'Sessions', 'role': 'widget',
+            'id': 'claude-local-sessions', 'uuid': '760f7625-3d5a-421e-a548-fe3d9296e019',
+            'name': 'Local: Sessions', 'role': 'widget',
             'path': '/widget/sessions', 'icon': '/widget/icon.svg',
             'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 4},
+        },
+        {
+            'id': 'claude-api-usage', 'uuid': '6a27d3da-9c65-449c-a69b-f4d4281d4858',
+            'name': 'API: Usage (Alpha)', 'role': 'widget',
+            'path': '/widget/usage', 'icon': '/widget/icon.svg',
+            'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
+        },
+        {
+            'id': 'claude-api-productivity', 'uuid': '14d4519e-2602-44dc-b9d3-b82274355ba2',
+            'name': 'API: Productivity (Alpha)', 'role': 'widget',
+            'path': '/widget/productivity', 'icon': '/widget/icon.svg',
+            'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
         },
         {
             'id': 'claude-settings', 'uuid': 'b0dc2a4d-f17c-473c-b77b-b2616e72bc58',

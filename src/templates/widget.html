@@ -28,30 +28,30 @@ p{font-size:12px;color:var(--wcp-color-text-muted,#8b949e);text-align:center;}
   <h2>📊 Claude Analytics</h2>
   <p>Select an instrument to add to your dashboard</p>
   <div class="grid">
-    <a class="btn" href="/widget/usage">
-      <span class="btn-icon">☁️</span>
-      <span class="btn-label">Usage</span>
-      <span class="btn-desc">Token usage &amp; cost breakdown</span>
-    </a>
-    <a class="btn" href="/widget/productivity">
-      <span class="btn-icon">📈</span>
-      <span class="btn-label">Productivity</span>
-      <span class="btn-desc">Developer activity &amp; model stats</span>
-    </a>
     <a class="btn" href="/widget/local">
       <span class="btn-icon">🖥</span>
-      <span class="btn-label">Local</span>
+      <span class="btn-label">Local: Environment</span>
       <span class="btn-desc">MCP servers, plugins &amp; system</span>
     </a>
     <a class="btn" href="/widget/sessions">
       <span class="btn-icon">🕐</span>
-      <span class="btn-label">Sessions</span>
+      <span class="btn-label">Local: Sessions</span>
       <span class="btn-desc">Recent Claude Code sessions</span>
+    </a>
+    <a class="btn" href="/widget/usage" style="opacity:.7;">
+      <span class="btn-icon">☁️</span>
+      <span class="btn-label">API: Usage <small style="color:var(--wcp-color-warning,#d29922);font-size:9px;">ALPHA</small></span>
+      <span class="btn-desc">Token usage &amp; cost (Admin API)</span>
+    </a>
+    <a class="btn" href="/widget/productivity" style="opacity:.7;">
+      <span class="btn-icon">📈</span>
+      <span class="btn-label">API: Productivity <small style="color:var(--wcp-color-warning,#d29922);font-size:9px;">ALPHA</small></span>
+      <span class="btn-desc">Developer activity (Admin API)</span>
     </a>
     <a class="btn" href="/widget/settings">
       <span class="btn-icon">⚙️</span>
       <span class="btn-label">Settings</span>
-      <span class="btn-desc">API keys, agent URL &amp; downloads</span>
+      <span class="btn-desc">Host agent &amp; API key config</span>
     </a>
   </div>
 </div>
