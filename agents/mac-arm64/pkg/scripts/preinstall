@@ -1,0 +1,8 @@
+#!/bin/bash
+# Check for any existing agent and stop it
+PLIST_PATH="$HOME/Library/LaunchAgents/com.penrithbeacon.claude-agent.plist"
+if [ -f "$PLIST_PATH" ]; then
+    launchctl unload "$PLIST_PATH" 2>/dev/null || true
+fi
+pkill -f "WCP Claude Agent" 2>/dev/null || true
+exit 0

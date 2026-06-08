@@ -5,3 +5,8 @@ __pycache__
 *.pyc
 .env
 data/
+agents/*/build/
+agents/*/pkg/
+agents/*/build-pkg.sh
+agents/*/install.sh
+.remember/

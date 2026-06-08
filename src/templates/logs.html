@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local: Log Viewer — Claude Analytics</title>
+<script type="application/ld+json">{{ jsonld|safe }}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#0d1117);
+  color:var(--wcp-color-text,#e6edf3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;}
+
+/* ── Themed scrollbars ──────────────────────────────────────────── */
+*::-webkit-scrollbar{width:8px;height:8px;}
+*::-webkit-scrollbar-track{background:var(--wcp-color-surface-raised,#1c2128);}
+*::-webkit-scrollbar-thumb{background:var(--wcp-color-border,#30363d);border-radius:4px;}
+*::-webkit-scrollbar-thumb:hover{background:var(--wcp-color-text-muted,#8b949e);}
+*{scrollbar-color:var(--wcp-color-border,#30363d) var(--wcp-color-surface-raised,#1c2128);scrollbar-width:thin;}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+.instrument{display:flex;height:100%;overflow:hidden;}
+.sidebar{width:240px;min-width:180px;display:flex;flex-direction:column;
+  border-right:1px solid var(--wcp-color-border,#30363d);background:var(--wcp-color-surface,#161b22);}
+.splitter{width:5px;flex-shrink:0;cursor:col-resize;
+  background:var(--wcp-color-border,#30363d);transition:background .15s;position:relative;}
+.splitter:hover,.splitter.dragging{background:var(--wcp-color-primary,#f0883e);}
+.splitter::after{content:'';position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);width:2px;height:32px;
+  background:rgba(255,255,255,.25);border-radius:1px;}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+
+/* ── Toolbar ────────────────────────────────────────────────────── */
+.toolbar{flex-shrink:0;display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-bottom:1px solid var(--wcp-color-border,#30363d);
+  background:var(--wcp-color-surface,#161b22);}
+.toolbar-title{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;}
+.toolbar-title-icon{opacity:.7;font-size:14px;}
+.toolbar-spacer{flex:1;}
+.log-type-group{display:flex;gap:0;border:1px solid var(--wcp-color-border,#30363d);border-radius:5px;overflow:hidden;}
+.log-type-btn{background:none;border:none;color:var(--wcp-color-text-muted,#8b949e);
+  cursor:pointer;padding:3px 10px;font-size:11px;font-weight:500;transition:all .15s;}
+.log-type-btn:hover{color:var(--wcp-color-text,#e6edf3);background:var(--wcp-color-surface-raised,#1c2128);}
+.log-type-btn.active{color:var(--wcp-color-bg,#0d1117);background:var(--wcp-color-primary,#f0883e);}
+.refresh-btn{background:none;border:none;color:var(--wcp-color-text-muted,#8b949e);cursor:pointer;
+  padding:3px 6px;border-radius:5px;font-size:14px;line-height:1;flex-shrink:0;
+  transition:color .15s,background .15s;}
+.refresh-btn:hover{color:var(--wcp-color-text,#e6edf3);background:var(--wcp-color-surface-raised,#1c2128);}
+.refresh-btn.spinning{animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── Sidebar list ───────────────────────────────────────────────── */
+.sidebar-header{flex-shrink:0;padding:8px 10px;font-size:11px;font-weight:600;
+  color:var(--wcp-color-text-muted,#8b949e);text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--wcp-color-border,#30363d);}
+.sidebar-list{flex:1;overflow-y:auto;padding:4px 0;}
+.log-item{display:flex;flex-direction:column;gap:1px;padding:7px 10px;cursor:pointer;
+  border-bottom:1px solid rgba(48,54,61,.3);font-size:12px;transition:background .1s;}
+.log-item:hover{background:var(--wcp-color-surface-raised,#1c2128);}
+.log-item.active{background:var(--wcp-color-surface-raised,#1c2128);
+  border-left:3px solid var(--wcp-color-primary,#f0883e);padding-left:7px;}
+.log-item-name{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.log-item-meta{font-size:10px;color:var(--wcp-color-text-muted,#8b949e);display:flex;gap:8px;}
+.sidebar-empty{padding:16px 10px;font-size:12px;color:var(--wcp-color-text-muted,#8b949e);text-align:center;}
+
+/* ── Content area ───────────────────────────────────────────────── */
+.content{flex:1;overflow-y:auto;padding:12px 16px;}
+.content-placeholder{display:flex;align-items:center;justify-content:center;
+  height:100%;color:var(--wcp-color-text-muted,#8b949e);font-size:12px;}
+
+/* ── Markdown rendering ─────────────────────────────────────────── */
+.md h1{font-size:16px;font-weight:700;margin:16px 0 8px;padding-bottom:4px;
+  border-bottom:1px solid var(--wcp-color-border,#30363d);}
+.md h1:first-child{margin-top:0;}
+.md h2{font-size:14px;font-weight:600;margin:12px 0 6px;color:var(--wcp-color-primary,#f0883e);}
+.md h3{font-size:13px;font-weight:600;margin:10px 0 4px;}
+.md p{margin:4px 0 8px;line-height:1.6;}
+.md em{color:var(--wcp-color-text-muted,#8b949e);font-style:italic;}
+.md strong{font-weight:600;}
+.md code{background:var(--wcp-color-surface-raised,#1c2128);padding:1px 5px;border-radius:3px;
+  font-family:'SF Mono',Menlo,monospace;font-size:12px;}
+.md pre{background:var(--wcp-color-surface-raised,#1c2128);padding:8px 10px;border-radius:6px;
+  overflow-x:auto;margin:6px 0;font-size:12px;line-height:1.5;}
+.md pre code{background:none;padding:0;}
+.md ul,.md ol{margin:4px 0 8px;padding-left:20px;}
+.md li{margin:2px 0;line-height:1.5;}
+.md hr{border:none;border-top:1px solid var(--wcp-color-border,#30363d);margin:12px 0;}
+.md blockquote{border-left:3px solid var(--wcp-color-border,#30363d);padding-left:10px;
+  margin:6px 0;color:var(--wcp-color-text-muted,#8b949e);}
+
+/* ── Setup prompt ────────────────────────────────────────────────── */
+.setup-prompt{padding:20px;text-align:center;color:var(--wcp-color-text-muted,#8b949e);}
+.setup-prompt h3{color:var(--wcp-color-primary,#f0883e);font-size:13px;margin-bottom:8px;}
+.setup-prompt p{font-size:12px;line-height:1.5;margin-bottom:10px;}
+.setup-link{color:var(--wcp-color-info,#58a6ff);text-decoration:none;font-size:12px;font-weight:500;}
+.setup-link:hover{text-decoration:underline;}
+
+.state-msg{padding:16px 12px;font-size:12px;color:var(--wcp-color-text-muted,#8b949e);}
+.state-error{color:var(--wcp-color-danger,#f85149);}
+</style>
+</head>
+<body>
+{% if not has_agent %}
+<div class="setup-prompt" style="padding-top:40px;">
+  <h3>Host Agent Required</h3>
+  <p>Install the Claude Analytics host agent to enable session logging and the log viewer.</p>
+  <a class="setup-link" href="/widget/settings">Install Agent &rarr;</a>
+</div>
+{% else %}
+<div class="instrument">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">Log Files</div>
+    <div class="sidebar-list" id="sidebar-list">
+      <div class="sidebar-empty">Loading&hellip;</div>
+    </div>
+  </div>
+  <!-- Splitter -->
+  <div class="splitter" id="splitter" title="Drag to resize"></div>
+  <!-- Main -->
+  <div class="main">
+    <div class="toolbar">
+      <div class="toolbar-title">
+        <span class="toolbar-title-icon">📋</span>
+        <span>Log Viewer</span>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="log-type-group" id="log-type-group"></div>
+      <button class="refresh-btn" id="btn-refresh" title="Refresh" onclick="loadLogList()">↺</button>
+    </div>
+    <div class="content" id="content">
+      <div class="content-placeholder">Select a log file from the sidebar</div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const HAS_AGENT = {{ 'true' if has_agent else 'false' }};
+
+let _currentType = 'sessions';
+let _activeFile = null;
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function spin(id, on) {
+  const btn = document.getElementById(id);
+  if (on) btn.classList.add('spinning'); else btn.classList.remove('spinning');
+}
+
+// ── Markdown renderer (lightweight) ─────────────────────────────────────────
+
+function renderMarkdown(md) {
+  let html = esc(md);
+
+  // Horizontal rules
+  html = html.replace(/^---+$/gm, '<hr>');
+
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold + italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Code blocks
+  html = html.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+  // Blockquotes
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // List items (unordered)
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  // Paragraphs — wrap lines that aren't already in block elements
+  const lines = html.split('\n');
+  const result = [];
+  let inBlock = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/<(h[1-6]|hr|pre|ul|ol|li|blockquote)/.test(line)) {
+      inBlock = true;
+      result.push(line);
+    } else if (/<\/(pre|ul|ol|blockquote)>/.test(line)) {
+      result.push(line);
+      inBlock = false;
+    } else if (inBlock) {
+      result.push(line);
+    } else if (line.trim() === '') {
+      result.push('');
+    } else {
+      result.push(`<p>${line}</p>`);
+    }
+  }
+
+  return result.join('\n');
+}
+
+// ── Load log list ───────────────────────────────────────────────────────────
+
+async function loadLogList() {
+  if (!HAS_AGENT) return;
+  spin('btn-refresh', true);
+  try {
+    const r = await fetch(`/widget/api/agent/logs/list?type=${_currentType}`);
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Failed');
+    renderLogTypes(j.data.types || []);
+    renderLogList(j.data.files || []);
+  } catch (e) {
+    document.getElementById('sidebar-list').innerHTML =
+      `<div class="state-msg state-error">${esc(e.message)}</div>`;
+  }
+  spin('btn-refresh', false);
+}
+
+function renderLogTypes(types) {
+  const group = document.getElementById('log-type-group');
+  if (!types.length) { group.innerHTML = ''; return; }
+  let html = '';
+  types.forEach(t => {
+    const cls = t.id === _currentType ? 'log-type-btn active' : 'log-type-btn';
+    html += `<button class="${cls}" onclick="switchType('${esc(t.id)}')">${esc(t.label)}</button>`;
+  });
+  group.innerHTML = html;
+}
+
+function switchType(type) {
+  _currentType = type;
+  _activeFile = null;
+  document.getElementById('content').innerHTML =
+    '<div class="content-placeholder">Select a log file from the sidebar</div>';
+  loadLogList();
+}
+
+function renderLogList(files) {
+  const list = document.getElementById('sidebar-list');
+  if (files.length === 0) {
+    list.innerHTML = '<div class="sidebar-empty">No log files yet.<br><br><span style="font-size:11px;color:var(--wcp-color-text-muted,#8b949e)">Session logs appear as you use Claude Code.</span></div>';
+    return;
+  }
+  let html = '';
+  files.forEach(f => {
+    const cls = f.name === _activeFile ? 'log-item active' : 'log-item';
+    html += `<div class="${cls}" onclick="loadLog('${esc(f.name)}')">
+      <div class="log-item-name">${esc(f.name)}</div>
+      <div class="log-item-meta">
+        <span>${esc(f.modified)}</span>
+        <span>${esc(f.size_label)}</span>
+      </div>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+// ── Load individual log ─────────────────────────────────────────────────────
+
+async function loadLog(name) {
+  _activeFile = name;
+  // Update active state in sidebar
+  document.querySelectorAll('.log-item').forEach(el => {
+    el.classList.toggle('active', el.querySelector('.log-item-name').textContent === name);
+  });
+
+  const content = document.getElementById('content');
+  content.innerHTML = '<div class="content-placeholder">Loading&hellip;</div>';
+
+  try {
+    const r = await fetch(`/widget/api/agent/logs/read?type=${_currentType}&name=${encodeURIComponent(name)}`);
+    const j = await r.json();
+    if (!j.success) throw new Error(j.error || 'Failed');
+    content.innerHTML = `<div class="md">${renderMarkdown(j.data.content)}</div>`;
+  } catch (e) {
+    content.innerHTML = `<div class="state-msg state-error">${esc(e.message)}</div>`;
+  }
+}
+
+// ── Splitter ────────────────────────────────────────────────────────────────
+
+const sidebar = document.getElementById('sidebar');
+const splitter = document.getElementById('splitter');
+if (splitter) {
+  const KEY = 'claude-logs:sidebar-width';
+  const MIN = 140, MAX = 400;
+  const saved = parseInt(localStorage.getItem(KEY));
+  if (saved && saved >= MIN && saved <= MAX) sidebar.style.width = saved + 'px';
+
+  splitter.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const startX = e.clientX, startW = sidebar.offsetWidth;
+    splitter.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    function move(ev) {
+      sidebar.style.width = Math.max(MIN, Math.min(MAX, startW + ev.clientX - startX)) + 'px';
+    }
+    function up() {
+      splitter.classList.remove('dragging');
+      document.body.style.cursor = ''; document.body.style.userSelect = '';
+      localStorage.setItem(KEY, sidebar.offsetWidth);
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    }
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+
+function _applyThemeVars(vars) {
+  for (const [k, v] of Object.entries(vars))
+    document.documentElement.style.setProperty(k, v);
+}
+window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+// WCP Conditional Visibility — hide API components when no admin key is configured
+window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+  'claude-api-usage': {{ 'true' if has_api_key else 'false' }},
+  'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
+}}, '*');
+window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
+window.addEventListener('message', e => {
+  if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);
+  if (e.data?.type === 'wcp:theme' && e.data.vars)    _applyThemeVars(e.data.vars);
+});
+
+if (HAS_AGENT) loadLogList();
+</script>
+</body>
+</html>

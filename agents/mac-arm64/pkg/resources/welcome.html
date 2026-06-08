@@ -1,0 +1,42 @@
+<html>
+<head>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; font-size: 13px; line-height: 1.6; color: #333; padding: 20px; }
+h1 { font-size: 18px; color: #1a1a1a; margin-bottom: 12px; }
+h2 { font-size: 14px; color: #555; margin-top: 16px; margin-bottom: 6px; }
+code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+ul { padding-left: 20px; }
+li { margin-bottom: 4px; }
+.note { background: #fff8e6; border-left: 3px solid #f0883e; padding: 8px 12px; margin-top: 14px; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>WCP Claude Analytics &mdash; Host Agent</h1>
+<p>This installer will set up the Claude Analytics host agent as a <strong>Menu Bar Extra</strong> on your Mac. You'll see a small icon in your menu bar that shows the agent is running and gives you full control.</p>
+
+<h2>What will be installed:</h2>
+<ul>
+<li><strong>WCP Claude Agent.app</strong> in /Applications &mdash; the menu bar agent</li>
+<li><strong>Uninstall WCP Claude Agent.app</strong> in /Applications &mdash; to remove the agent later</li>
+<li>A launchd service for auto-start on login</li>
+</ul>
+
+<h2>What the agent does:</h2>
+<ul>
+<li>Provides local Claude Code data to the Claude Analytics widget</li>
+<li>Reads your MCP server configuration, installed plugins, and recent sessions</li>
+<li>Runs on <code>localhost:3747</code> (not accessible from the network)</li>
+</ul>
+
+<h2>After installation:</h2>
+<ul>
+<li>Look for the agent icon in your menu bar (top-right of screen)</li>
+<li>Click it to see status, change port, view logs, or uninstall</li>
+<li>The agent starts automatically when you log in</li>
+</ul>
+
+<div class="note">
+<strong>Port conflict?</strong> If port 3747 is already in use, the menu bar icon will show a warning. Click it and select "Change Port…" to choose a different port.
+</div>
+</body>
+</html>

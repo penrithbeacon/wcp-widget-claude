@@ -7,7 +7,7 @@
 services:
   wcp-widget-claude:
     build: .
-    image: penrithbeacon/wcp-widget-claude:1.0.0-wcp2.1.0
+    image: penrithbeacon/wcp-widget-claude:1.1.0-wcp2.1.0
     container_name: wcp-widget-claude
     ports:
       - "3746:3746"

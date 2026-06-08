@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help — Claude Analytics</title>
+<script type="application/ld+json">{{ jsonld|safe }}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#0d1117);
+  color:var(--wcp-color-text,#e6edf3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;}
+
+/* ── Themed scrollbars ──────────────────────────────────────────── */
+*::-webkit-scrollbar{width:8px;height:8px;}
+*::-webkit-scrollbar-track{background:var(--wcp-color-surface-raised,#1c2128);}
+*::-webkit-scrollbar-thumb{background:var(--wcp-color-border,#30363d);border-radius:4px;}
+*::-webkit-scrollbar-thumb:hover{background:var(--wcp-color-text-muted,#8b949e);}
+*{scrollbar-color:var(--wcp-color-border,#30363d) var(--wcp-color-surface-raised,#1c2128);scrollbar-width:thin;}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+.instrument{display:flex;height:100%;padding:10px;overflow:hidden;}
+.card{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;
+  border:1px solid var(--wcp-color-border,#30363d);border-radius:8px;background:var(--wcp-color-surface,#161b22);}
+.card-header{flex-shrink:0;display:flex;align-items:center;padding:9px 12px;
+  border-bottom:1px solid var(--wcp-color-border,#30363d);gap:8px;}
+.card-title{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;}
+.card-title-icon{flex-shrink:0;opacity:.7;font-size:14px;}
+.card-body{flex:1;overflow-y:auto;padding:16px 20px;}
+
+/* ── Help content ────────────────────────────────────────────────── */
+h2{font-size:14px;font-weight:700;color:var(--wcp-color-primary,#f0883e);margin:20px 0 8px;padding-top:12px;
+  border-top:1px solid var(--wcp-color-border,#30363d);}
+h2:first-child{margin-top:0;padding-top:0;border-top:none;}
+p{font-size:12px;line-height:1.7;margin-bottom:8px;color:var(--wcp-color-text,#e6edf3);}
+ul{padding-left:18px;margin-bottom:10px;}
+li{font-size:12px;line-height:1.7;margin-bottom:4px;}
+code{background:var(--wcp-color-surface-raised,#1c2128);padding:1px 5px;border-radius:3px;font-size:11px;
+  font-family:'SF Mono',SFMono-Regular,Consolas,monospace;}
+strong{color:var(--wcp-color-text,#e6edf3);}
+.note{background:var(--wcp-color-surface-raised,#1c2128);border-left:3px solid var(--wcp-color-primary,#f0883e);
+  padding:8px 12px;margin:10px 0;border-radius:0 4px 4px 0;font-size:11px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="instrument">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="card-title-icon">📖</span>
+        <span>Help — Claude Analytics Widget</span>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <h2>Getting Started</h2>
+      <p>The Claude Analytics widget has two data sources:</p>
+      <ul>
+        <li><strong>Host Agent</strong> — a Menu Bar Extra that runs on your Mac, providing local Claude Code data (MCP servers, plugins, sessions, system info). Required for the <em>Local: Environment</em> and <em>Local: Sessions</em> instruments.</li>
+        <li><strong>Anthropic Admin API</strong> (Alpha) — cloud-based usage reports and cost data. Required for the <em>API: Usage</em> and <em>API: Productivity</em> instruments. Requires an Admin API key which is not available on all account types.</li>
+      </ul>
+      <p>To get started, download and install the host agent from the <strong>Settings</strong> instrument, then add the <em>Local: Environment</em> and <em>Local: Sessions</em> instruments to your dashboard.</p>
+
+      <h2>Installing the Host Agent</h2>
+      <ul>
+        <li>Open the <strong>Settings</strong> instrument</li>
+        <li>Click <strong>Download .pkg</strong> under macOS (Apple Silicon)</li>
+        <li>Double-click the downloaded <code>WCP-Claude-Agent.pkg</code></li>
+        <li>Follow the installer wizard (requires admin password)</li>
+        <li>After installation, look for the agent icon in your <strong>menu bar</strong> (top-right of screen, near clock/Wi-Fi)</li>
+      </ul>
+      <div class="note">
+        The agent icon in your menu bar gives you full control: see status, change port, view logs, restart, stop, toggle auto-start, and uninstall.
+      </div>
+
+      <h2>Port Configuration</h2>
+      <p>The agent runs on <code>localhost:3747</code> by default. If this port is already in use:</p>
+      <ul>
+        <li>The menu bar icon will show a warning (red indicator)</li>
+        <li>Click the icon → select <strong>Change Port…</strong></li>
+        <li>Enter a new port number (1024–65535) and click <strong>Save &amp; Restart</strong></li>
+        <li><strong>Important:</strong> After changing the port, update the <strong>Agent URL</strong> in the Settings instrument to match (e.g. <code>http://host.docker.internal:3748</code>)</li>
+      </ul>
+
+      <h2>Troubleshooting</h2>
+      <ul>
+        <li><strong>Agent not connecting:</strong> Click the menu bar icon to check status. If stopped, click <strong>Start Agent</strong>. Verify the agent URL in Settings matches the port shown in the menu bar.</li>
+        <li><strong>Port conflict:</strong> Use <strong>Change Port…</strong> from the menu bar to pick a different port, then update the URL in Settings.</li>
+        <li><strong>No data showing:</strong> Click <strong>Test</strong> in Settings to verify connectivity. Check the menu bar icon is showing a green indicator.</li>
+        <li><strong>Reinstalling:</strong> Uninstall first (see below), then download and install the .pkg again from Settings.</li>
+      </ul>
+
+      <h2>Uninstalling</h2>
+      <p>Two ways to uninstall:</p>
+      <ul>
+        <li>Click the agent's <strong>menu bar icon</strong> → select <strong>Uninstall…</strong></li>
+        <li>Open <strong>Uninstall WCP Claude Agent</strong> from your Applications folder</li>
+      </ul>
+      <p>Both methods completely remove the agent service, application, configuration, and logs.</p>
+
+      <h2>Compatibility</h2>
+      <p>The host agent reads Claude Code's local session and configuration files. We recommend keeping both Claude Code and this agent updated to their latest versions to ensure compatibility.</p>
+      <p>If the agent stops reporting data correctly after a Claude Code update, check for a new version of the agent in the Settings instrument.</p>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function _applyThemeVars(vars) {
+  for (const [k, v] of Object.entries(vars))
+    document.documentElement.style.setProperty(k, v);
+}
+window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+// WCP Conditional Visibility — hide API components when no admin key is configured
+window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+  'claude-api-usage': {{ 'true' if has_api_key else 'false' }},
+  'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
+}}, '*');
+window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
+window.addEventListener('message', e => {
+  if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);
+  if (e.data?.type === 'wcp:theme' && e.data.vars)    _applyThemeVars(e.data.vars);
+});
+</script>
+</body>
+</html>

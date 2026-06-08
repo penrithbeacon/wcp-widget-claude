@@ -10,3 +10,7 @@ dist/
 build/
 .DS_Store
 .remember/
+agents/mac-arm64/WCP-Claude-Agent.pkg
+agents/mac-arm64/build/
+agents/mac-arm64/dist/
+agents/mac-arm64/icons/app.iconset/

@@ -107,7 +107,7 @@ WCP_MANIFEST = {
     'wcp':     '2.1.0',
     'uuid':    'bb43c314-4e04-49dd-8bc2-615d3138538d',
     'name':    'Claude Analytics',
-    'version': '1.0.0',
+    'version': '1.1.0',
     'description': (
         'Claude Code usage analytics, cost tracking, and developer productivity metrics. '
         'Cloud data via Anthropic Admin API; local data via optional host agent.'
@@ -117,7 +117,7 @@ WCP_MANIFEST = {
     'container': {
         'image':            'docker.io/penrithbeacon/wcp-widget-claude',
         'source':           {'type': 'registry'},
-        'tag':              '1.0.0-wcp2.1.0',
+        'tag':              '1.1.0-wcp2.1.0',
         'port':             3746,
         'volumes':          [{'name': 'claude_data', 'mountPath': '/app/data'}],
         'defaultLifecycle': 'always',
@@ -140,17 +140,31 @@ WCP_MANIFEST = {
             'name': 'API: Usage (Alpha)', 'role': 'widget',
             'path': '/widget/usage', 'icon': '/widget/icon.svg',
             'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
+            'conditionalVisibility': True,
         },
         {
             'id': 'claude-api-productivity', 'uuid': '14d4519e-2602-44dc-b9d3-b82274355ba2',
             'name': 'API: Productivity (Alpha)', 'role': 'widget',
             'path': '/widget/productivity', 'icon': '/widget/icon.svg',
             'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
+            'conditionalVisibility': True,
         },
         {
             'id': 'claude-settings', 'uuid': 'b0dc2a4d-f17c-473c-b77b-b2616e72bc58',
             'name': 'Settings', 'role': 'widget',
             'path': '/widget/settings', 'icon': '/widget/icon.svg',
+            'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
+        },
+        {
+            'id': 'claude-log-viewer', 'uuid': '3b7e92d1-a41f-4c8a-9e05-6f2d18b73c90',
+            'name': 'Local: Log Viewer', 'role': 'widget',
+            'path': '/widget/logs', 'icon': '/widget/icon.svg',
+            'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 8},
+        },
+        {
+            'id': 'claude-help', 'uuid': 'e9a3f7c1-5d28-4a1b-b6e0-3c8f91d24a07',
+            'name': 'Help', 'role': 'widget',
+            'path': '/widget/help', 'icon': '/widget/icon.svg',
             'renderMode': 'iframe', 'defaultSize': {'w': 12, 'h': 6},
         },
     ],
@@ -292,6 +306,14 @@ def widget_settings():
     s = read_settings()
     return render_template('settings.html', settings=s, **_ctx())
 
+@app.route('/widget/logs')
+def widget_logs():
+    return render_template('logs.html', **_ctx())
+
+@app.route('/widget/help')
+def widget_help():
+    return render_template('help.html', **_ctx())
+
 # ── Cloud API: Usage (tokens) ────────────────────────────────────────────────
 
 @app.route('/widget/api/cloud/usage')
@@ -395,17 +417,18 @@ def api_cloud_productivity():
 
 @app.route('/widget/api/agent/<path:endpoint>')
 def api_agent_proxy(endpoint):
-    if endpoint not in ('mcp', 'plugins', 'sessions', 'system', 'health'):
+    if endpoint not in ('mcp', 'plugins', 'sessions', 'system', 'health', 'logs', 'logs/list', 'logs/read'):
         return jsonify({'success': False, 'error': 'Invalid endpoint'}), 400
     cache_key = f'agent:{endpoint}'
     cached = get_cache(cache_key)
-    if cached and endpoint != 'health':
+    if cached and endpoint not in ('health', 'logs/list', 'logs/read'):
         return jsonify(cached)
     url = _agent_url(f'/{endpoint}')
     if not url:
         return jsonify({'success': False, 'error': 'Host agent URL not configured'})
     try:
-        r = requests.get(url, timeout=8)
+        # Forward query parameters to the agent
+        r = requests.get(url, params=request.args, timeout=8)
         result = r.json()
         if result.get('success') and endpoint != 'health':
             set_cache(cache_key, result)
@@ -493,6 +516,17 @@ def download_agent(platform):
     agent_dir = os.path.join(AGENTS_DIR, valid[platform])
     if not os.path.isdir(agent_dir):
         return jsonify({'success': False, 'error': 'Agent not available for this platform'}), 404
+
+    # Serve .pkg installer if available (macOS)
+    pkg_path = os.path.join(agent_dir, 'WCP-Claude-Agent.pkg')
+    if os.path.isfile(pkg_path):
+        with open(pkg_path, 'rb') as f:
+            data = f.read()
+        resp = Response(data, mimetype='application/vnd.apple.installer+xml')
+        resp.headers['Content-Disposition'] = 'attachment; filename="WCP-Claude-Agent.pkg"'
+        return resp
+
+    # Fallback: zip archive (Linux and future platforms)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         for root, dirs, files in os.walk(agent_dir):

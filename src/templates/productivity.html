@@ -259,6 +259,11 @@ function _applyThemeVars(vars) {
     document.documentElement.style.setProperty(k, v);
 }
 window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+// WCP Conditional Visibility — hide API components when no admin key is configured
+window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+  'claude-api-usage': {{ 'true' if has_api_key else 'false' }},
+  'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
+}}, '*');
 window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
 window.addEventListener('message', e => {
   if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);

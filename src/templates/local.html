@@ -19,10 +19,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
 
 /* ── Layout ─────────────────────────────────────────────────────── */
 .instrument{display:flex;flex-direction:column;height:100%;gap:10px;padding:10px;overflow:hidden;}
-.row{display:flex;gap:10px;flex:1;min-height:0;}
+.row{display:flex;gap:10px;flex:1 1 0;min-height:0;}
 .card{display:flex;flex-direction:column;flex:1;min-width:0;overflow:hidden;
   border:1px solid var(--wcp-color-border,#30363d);border-radius:8px;background:var(--wcp-color-surface,#161b22);}
-.card-full{flex:none;}
+.card-full{flex:0 0 auto;min-height:160px;}
 .card-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
   padding:9px 12px;border-bottom:1px solid var(--wcp-color-border,#30363d);gap:8px;}
 .card-title{font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;min-width:0;}
@@ -115,7 +115,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
     </div>
   </div>
   <!-- System card (full width) -->
-  <div class="card card-full" style="max-height:140px;">
+  <div class="card card-full">
     <div class="card-header">
       <div class="card-title">
         <span class="card-title-icon">💻</span>
@@ -250,7 +250,7 @@ function renderSystem(data) {
     { label: 'Node.js',    value: data.node_version || 'N/A' },
     { label: 'Platform',   value: data.platform || 'N/A' },
     { label: 'Hostname',   value: data.hostname || 'N/A' },
-    { label: 'Memory',     value: data.memory || 'N/A' },
+    { label: 'RAM',         value: data.memory || 'N/A' },
     { label: 'Uptime',     value: data.uptime || 'N/A' },
   ];
 
@@ -272,6 +272,11 @@ function _applyThemeVars(vars) {
     document.documentElement.style.setProperty(k, v);
 }
 window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+// WCP Conditional Visibility — hide API components when no admin key is configured
+window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+  'claude-api-usage': {{ 'true' if has_api_key else 'false' }},
+  'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
+}}, '*');
 window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
 window.addEventListener('message', e => {
   if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);

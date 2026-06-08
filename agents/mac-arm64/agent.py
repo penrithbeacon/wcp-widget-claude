@@ -19,14 +19,18 @@ The widget container reaches it via Docker's host.docker.internal.
 Install: ./install.sh (sets up launchd for auto-start)
 """
 
+import glob
 import json
+import logging
 import os
 import platform
 import subprocess
+import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
@@ -35,6 +39,10 @@ app = Flask(__name__)
 AGENT_PORT = int(os.environ.get('CLAUDE_AGENT_PORT', '3747'))
 HOME = Path.home()
 CLAUDE_DIR = HOME / '.claude'
+LOG_DIR = HOME / '.penrith-beacon' / 'claude-agent' / 'logs'
+SESSIONS_LOG_DIR = LOG_DIR / 'sessions'
+MAX_LOG_SIZE = 50 * 1024  # 50 KB per log file — keeps them quick to load
+MAX_LOG_FILES = 100       # per log type — old ones get rotated out
 
 # ── Helpers ────────────────────────────────��──────────────────────────────────
 
@@ -65,6 +73,49 @@ def _format_bytes(b):
     if b >= 1e6:
         return f'{b / 1e6:.0f} MB'
     return f'{b / 1e3:.0f} KB'
+
+
+def _decode_project_dir(name):
+    """Decode a Claude project directory name back to a filesystem path.
+
+    Claude encodes paths as: /Volumes/dashboard → -Volumes-dashboard
+    We try progressively building the path, checking which directories exist,
+    to handle cases where directory names contain literal dashes.
+    Falls back to simple replacement if no path can be verified.
+    """
+    if not name.startswith('-'):
+        return name
+
+    # Simple approach: replace all - with /
+    simple = '/' + name[1:].replace('-', '/')
+
+    # Try to verify by walking segments and checking existence
+    segments = name[1:].split('-')
+    if not segments:
+        return simple
+
+    # Greedy: try to match the longest existing path segments
+    best_path = '/'
+    i = 0
+    while i < len(segments):
+        # Try accumulating segments with dashes (for dirs with dashes in names)
+        found = False
+        for j in range(len(segments), i, -1):
+            candidate_segment = '-'.join(segments[i:j])
+            candidate_path = os.path.join(best_path, candidate_segment)
+            if os.path.isdir(candidate_path):
+                best_path = candidate_path
+                i = j
+                found = True
+                break
+        if not found:
+            # No existing dir found — append remaining as /-separated
+            remaining = '/'.join(segments[i:])
+            best_path = os.path.join(best_path, remaining)
+            break
+
+    # If we verified at least some of the path, use it; otherwise fallback
+    return best_path if best_path != '/' else simple
 
 
 def _format_uptime(seconds):
@@ -201,17 +252,10 @@ def sessions():
     session_files = session_files[:10]
 
     for filepath, mtime in session_files:
-        # Try to extract working directory from project dir name
+        # Claude encodes project paths by replacing / with -
+        # e.g. "/Volumes/dashboard" → "-Volumes-dashboard"
         project_name = filepath.parent.name
-        # Project dirs are named like "-Users-dev-myproject" (path with dashes)
-        cwd = project_name.replace('-', '/', 1) if project_name.startswith('-') else project_name
-        # Fix remaining dashes that were path separators
-        if cwd.startswith('/'):
-            # It's an encoded absolute path: "-Users-dev-project" → "/Users/dev/project"
-            parts = project_name.split('-')
-            # Reconstruct: first empty string (leading dash), then path components
-            # Heuristic: rejoin with / since we know it started with /
-            cwd = '/' + '/'.join(parts[1:]) if parts[0] == '' else project_name
+        cwd = _decode_project_dir(project_name)
 
         session_list.append({
             'id': filepath.stem,
@@ -227,18 +271,28 @@ def sessions():
 @app.route('/system')
 def system_info():
     """Gather system information."""
-    # Claude CLI version
-    claude_ver = _run('claude --version') or 'Not installed'
+    # Claude CLI version — check common install locations
+    claude_ver = (
+        _run('claude --version') or
+        _run(os.path.expanduser('~/.local/bin/claude') + ' --version') or
+        _run('/usr/local/bin/claude --version') or
+        'Not installed'
+    )
 
     # Node version
-    node_ver = _run('node --version') or 'Not installed'
+    node_ver = (
+        _run('node --version') or
+        _run('/usr/local/bin/node --version') or
+        _run('/opt/homebrew/bin/node --version') or
+        'Not installed'
+    )
 
     # Platform
     arch = platform.machine()
     plat = f'macOS {platform.mac_ver()[0]} ({arch})'
 
-    # Hostname
-    hostname = platform.node()
+    # Hostname — use ComputerName (user-friendly) rather than platform.node()
+    hostname = _run('scutil --get ComputerName') or platform.node()
 
     # Memory
     try:
@@ -287,7 +341,148 @@ def system_info():
     })
 
 
-# ── Run ──────────────────────────────────��────────────────────────────────────
+# ── Session Monitor ──────────────────────────────────────────────────────────
+
+_session_monitor_known = set()
+
+
+def _get_current_log_path():
+    """Get the current session log file path, rotating if too large."""
+    SESSIONS_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    # Current log is the most recently named file
+    existing = sorted(SESSIONS_LOG_DIR.glob('sessions-*.md'), reverse=True)
+    if existing:
+        latest = existing[0]
+        if latest.stat().st_size < MAX_LOG_SIZE:
+            return latest
+    # Create new log file
+    ts = datetime.now().strftime('%Y-%m-%d-%H%M%S')
+    return SESSIONS_LOG_DIR / f'sessions-{ts}.md'
+
+
+def _log_session(session_id, cwd, modified):
+    """Append a session entry to the current log file."""
+    log_path = _get_current_log_path()
+    is_new = not log_path.exists()
+    with open(log_path, 'a', encoding='utf-8') as f:
+        if is_new:
+            f.write(f'# Claude Code Sessions Log\n\n')
+            f.write(f'*Agent: WCP Claude Analytics | Started: {datetime.now().strftime("%Y-%m-%d %H:%M")}*\n\n')
+            f.write('---\n\n')
+        f.write(f'## {modified}\n\n')
+        f.write(f'- **Path:** `{cwd}`\n')
+        f.write(f'- **Session:** `{session_id}`\n\n')
+    # Prune old log files
+    existing = sorted(SESSIONS_LOG_DIR.glob('sessions-*.md'), reverse=True)
+    for old in existing[MAX_LOG_FILES:]:
+        old.unlink(missing_ok=True)
+
+
+def _scan_sessions():
+    """Scan for new/updated sessions and log them."""
+    projects_dir = CLAUDE_DIR / 'projects'
+    if not projects_dir.is_dir():
+        return
+    for project_dir in projects_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+        for f in project_dir.iterdir():
+            if f.suffix != '.jsonl' or not f.is_file():
+                continue
+            key = str(f)
+            mtime = f.stat().st_mtime
+            entry = f'{key}:{mtime}'
+            if entry not in _session_monitor_known:
+                if _session_monitor_known:  # Skip initial scan (don't log everything)
+                    cwd = _decode_project_dir(project_dir.name)
+                    mod_str = datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+                    _log_session(f.stem, cwd, mod_str)
+                _session_monitor_known.add(entry)
+
+
+def _session_monitor_loop():
+    """Background thread: scans for session changes every 30 seconds."""
+    while True:
+        try:
+            _scan_sessions()
+        except Exception:
+            pass
+        time.sleep(30)
+
+
+def start_session_monitor():
+    """Start the background session monitor thread."""
+    t = threading.Thread(target=_session_monitor_loop, daemon=True)
+    t.start()
+
+
+# ── Log Endpoints ────────────────────────────────────────────────────────────
+
+LOG_TYPES = {
+    'sessions': {'dir': 'sessions', 'pattern': 'sessions-*.md', 'label': 'Sessions'},
+}
+
+
+@app.route('/logs/list')
+def logs_list():
+    """List available log files, optionally filtered by type."""
+    log_type = request.args.get('type', 'sessions')
+    if log_type not in LOG_TYPES:
+        return jsonify({'success': False, 'error': f'Unknown log type: {log_type}'})
+
+    info = LOG_TYPES[log_type]
+    log_dir = LOG_DIR / info['dir']
+    files = []
+
+    if log_dir.is_dir():
+        for f in sorted(log_dir.glob(info['pattern']), reverse=True):
+            stat = f.stat()
+            files.append({
+                'name': f.name,
+                'type': log_type,
+                'size': stat.st_size,
+                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M'),
+                'size_label': _format_bytes(stat.st_size),
+            })
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'type': log_type,
+            'types': [{'id': k, 'label': v['label']} for k, v in LOG_TYPES.items()],
+            'files': files,
+        }
+    })
+
+
+@app.route('/logs/read')
+def logs_read():
+    """Read contents of a specific log file."""
+    log_type = request.args.get('type', 'sessions')
+    name = request.args.get('name', '')
+
+    if log_type not in LOG_TYPES:
+        return jsonify({'success': False, 'error': f'Unknown log type'})
+
+    # Sanitise filename — prevent path traversal
+    if not name or '/' in name or '\\' in name or '..' in name:
+        return jsonify({'success': False, 'error': 'Invalid filename'})
+
+    info = LOG_TYPES[log_type]
+    log_path = LOG_DIR / info['dir'] / name
+
+    if not log_path.is_file():
+        return jsonify({'success': False, 'error': 'File not found'})
+
+    try:
+        content = log_path.read_text(encoding='utf-8')
+        return jsonify({'success': True, 'data': {'name': name, 'content': content}})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+# ── Run ──────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
+    start_session_monitor()
     app.run(host='127.0.0.1', port=AGENT_PORT, debug=False)

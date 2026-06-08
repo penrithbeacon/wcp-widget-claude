@@ -48,10 +48,20 @@ p{font-size:12px;color:var(--wcp-color-text-muted,#8b949e);text-align:center;}
       <span class="btn-label">API: Productivity <small style="color:var(--wcp-color-warning,#d29922);font-size:9px;">ALPHA</small></span>
       <span class="btn-desc">Developer activity (Admin API)</span>
     </a>
+    <a class="btn" href="/widget/logs">
+      <span class="btn-icon">📋</span>
+      <span class="btn-label">Local: Log Viewer</span>
+      <span class="btn-desc">Session history &amp; activity logs</span>
+    </a>
     <a class="btn" href="/widget/settings">
       <span class="btn-icon">⚙️</span>
       <span class="btn-label">Settings</span>
       <span class="btn-desc">Host agent &amp; API key config</span>
+    </a>
+    <a class="btn" href="/widget/help">
+      <span class="btn-icon">📖</span>
+      <span class="btn-label">Help</span>
+      <span class="btn-desc">Setup guide &amp; troubleshooting</span>
     </a>
   </div>
 </div>
@@ -61,6 +71,11 @@ function _applyThemeVars(vars) {
     document.documentElement.style.setProperty(k, v);
 }
 window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+// WCP Conditional Visibility — hide API components when no admin key is configured
+window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+  'claude-api-usage': {{ 'true' if has_api_key else 'false' }},
+  'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
+}}, '*');
 window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
 window.addEventListener('message', e => {
   if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);

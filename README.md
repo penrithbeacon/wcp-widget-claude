@@ -1,180 +1,283 @@
-# WCP Widget: Claude Analytics
+# WCP Claude Analytics
 
-> **Tutorial Reference** — This widget serves as a worked example for building WCP widget containers that include a companion host agent. It demonstrates the full pattern: Docker container with Flask backend, multiple instrument pages, cloud API integration, host agent communication, settings management, and themed UI.
+> **Experimental** &mdash; published as a reference implementation and tutorial
 
-Claude Code usage analytics, cost tracking, and developer productivity metrics. Cloud data via Anthropic Admin API; local data via optional host agent.
+A [Widget Context Protocol](https://widgetcontextprotocol.com) (WCP) widget providing Claude Code usage analytics, session history, and system environment information. Part of [Penrith Beacon](https://penrithbeacon.com).
 
-## Architecture
+This widget is certified **WCP 2.1.0** compliant.
+
+---
+
+## Experimental Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Local: Environment | Production | Fully tested |
+| Local: Sessions | Production | Fully tested |
+| Local: Log Viewer | Production | Fully tested |
+| Settings | Production | Fully tested |
+| Help | Production | Fully tested |
+| API: Usage | **Untested** | Requires Anthropic Teams/Enterprise Admin API key |
+| API: Productivity | **Untested** | Requires Anthropic Teams/Enterprise Admin API key |
+| Host Agent (macOS Apple Silicon) | Production | Fully tested |
+| Host Agent (macOS Intel) | Coming soon | &mdash; |
+| Host Agent (Linux x64) | Coming soon | &mdash; |
+| Host Agent (Windows x64) | Coming soon | &mdash; |
+
+The Cloud API components are read-only and informational. They require an Anthropic Admin API key available only on Teams and Enterprise plans. They have not been tested due to account limitations. Use at your own risk.
+
+---
+
+## Overview
+
+Claude Analytics has a unique architecture among WCP widgets: it pairs a standard Docker container (the widget server) with a **native host agent** that runs as a macOS menu bar application. This is necessary because the widget needs access to files on the host operating system (Claude Code session data, MCP configuration, installed plugins) which are not available from within a Docker container.
 
 ```
-┌────────────────────────────────────────────────────┐
-│  Claude Analytics Widget (Docker, port 3746)        │
-│  Flask app — 5 instruments + settings               │
-│                                                      │
-│  Cloud instruments ← Anthropic Admin API             │
-│  Local instruments ← Host Agent (localhost:3747)     │
-└────────────────────────────────────────────────────┘
-         │ via host.docker.internal
-┌────────────────────────────────────────────────────┐
-│  Host Agent (native, port 3747)                     │
-│  Reads ~/.claude/ config, runs CLI commands          │
-│  Auto-starts via launchd (macOS)                    │
-└────────────────────────────────────────────────────┘
++-----------------+         +-------------------+         +-------------------+
+|                 |         |                   |         |                   |
+|   Host macOS    | <-----> |  WCP Claude Agent | <-----> |  Widget Container |
+|   (files, CLI)  |  reads  |  (port 3747)      |  HTTP   |  (port 3746)      |
+|                 |         |  Menu bar app     |         |  Flask server     |
++-----------------+         +-------------------+         +-------------------+
+                                                                    |
+                                                                    v
+                                                          +-------------------+
+                                                          |                   |
+                                                          |  Penrith Beacon   |
+                                                          |  Dashboard (host) |
+                                                          |                   |
+                                                          +-------------------+
 ```
 
-## Instruments
+The container communicates with the host agent via `host.docker.internal:3747`.
 
-| Instrument | Data Source | Description |
-|:-----------|:-----------|:------------|
-| **Usage** | Cloud API | Per-model token breakdown (input, output, cache) + cost summary |
-| **Productivity** | Cloud API | Developer activity stats, model breakdown, terminal types |
-| **Local** | Host Agent | MCP servers, installed plugins, system info |
-| **Sessions** | Host Agent | Recent Claude Code sessions with working directory |
-| **Settings** | Local | API key management, agent URL, test buttons, agent downloads |
+---
+
+## Components
+
+| ID | Name | Role | Default Size | Description |
+|----|------|------|:------------:|-------------|
+| `claude-local-environment` | Local: Environment | widget | 12 x 6 | MCP servers, plugins, system info |
+| `claude-local-sessions` | Local: Sessions | widget | 12 x 4 | Recent Claude Code session history |
+| `claude-api-usage` | API: Usage | widget | 12 x 6 | Token usage and cost tracking |
+| `claude-api-productivity` | API: Productivity | widget | 12 x 6 | Productivity metrics over time |
+| `claude-settings` | Settings | widget | 12 x 6 | Configuration, agent download |
+| `claude-log-viewer` | Local: Log Viewer | widget | 12 x 8 | Live session log streaming |
+| `claude-help` | Help | widget | 12 x 6 | User guide |
+
+The API components use WCP Conditional Visibility &mdash; they are hidden from the dashboard unless an Admin API key is configured in Settings.
+
+---
+
+## Tutorial: Building a WCP Host Agent
+
+This section documents the architecture and implementation of the host agent as a reference for widget developers who need to access host OS resources from within a Docker container.
+
+### Why a Host Agent?
+
+Docker containers are isolated from the host filesystem by design. A WCP widget running in a container cannot:
+- Read files from the user's home directory
+- Execute CLI tools installed on the host
+- Access OS-level information (hostname, RAM, uptime)
+
+The solution is a lightweight native application that runs on the host, reads local data, and exposes it via a localhost HTTP API that the container can reach through Docker's `host.docker.internal` hostname.
+
+### Architecture
+
+The WCP Claude Agent is structured as:
+
+```
+agents/mac-arm64/
+  menubar_agent.py    # Main app (rumps menu bar integration)
+  agent.py            # Flask server with data-reading endpoints
+  config.py           # Configuration management (~/.penrith-beacon/claude-agent/)
+  build-app.sh        # Build script: py2app -> .pkg installer
+  setup.py            # py2app configuration
+  pkg/
+    distribution.xml  # macOS installer distribution descriptor
+    resources/        # welcome.html, conclusion.html, license.html
+    scripts/          # preinstall, postinstall shell scripts
+```
+
+### The Flask Server (`agent.py`)
+
+The agent runs a Flask server on `127.0.0.1:3747` (localhost only &mdash; not accessible from the network). It exposes endpoints that read local Claude Code data:
+
+| Endpoint | What it reads |
+|----------|---------------|
+| `GET /mcp` | `~/.claude/settings.json` &mdash; MCP server configuration |
+| `GET /plugins` | `~/.claude/plugins/` &mdash; installed plugin manifests |
+| `GET /system` | OS info via `platform`, `psutil`, and subprocess calls |
+| `GET /sessions` | `~/.claude/projects/` &mdash; recent session metadata |
+| `GET /logs/:id` | Individual session transcript (streamed) |
+
+### Menu Bar Integration (`menubar_agent.py`)
+
+The agent uses the [`rumps`](https://github.com/jaredks/rumps) library to create a macOS menu bar application. This provides:
+
+- A persistent icon near the clock (top-right of screen)
+- Hover tooltip showing current state ("WCP Claude Agent &mdash; Running")
+- Click menu with status, port configuration, log access, and lifecycle controls
+- Error badge overlay when the agent is in an error state (e.g., port conflict)
+
+Key patterns:
+- **State-driven menu rebuild:** `_build_menu()` is called after any state change, dynamically adding/removing error rows
+- **Tooltip via NSStatusItem:** Access the native button via `self._nsapp.nsstatusitem.button().setToolTip_()`
+- **Restart via `open -a`:** The py2app bundle cannot use `os.execv`; instead, spawn a delayed `open -a` and quit
+
+### Building the Installer (`build-app.sh`)
+
+The build process:
+
+1. Create a Python virtual environment with Flask, rumps, py2app
+2. Run `python setup.py py2app` to create `WCP Claude Agent.app`
+3. Create a companion `Uninstall WCP Claude Agent.app` (shell script in .app wrapper)
+4. Package both into a `.pkg` installer using `pkgbuild` + `productbuild`
+
+The `.pkg` installer:
+- Runs a `preinstall` script to stop any existing agent
+- Copies both `.app` bundles to `/Applications`
+- Runs a `postinstall` script to install a launchd plist and launch the agent
+
+### Auto-Start via launchd
+
+The agent creates a launchd user agent plist at:
+```
+~/Library/LaunchAgents/com.penrithbeacon.claude-agent.plist
+```
+
+This ensures the agent starts automatically on login with `RunAtLoad: true`.
+
+### Container-to-Agent Communication
+
+The Docker container reaches the host agent via:
+```
+http://host.docker.internal:3747
+```
+
+This is configured in `docker-compose.yml`:
+```yaml
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+The widget's Settings component stores the agent URL and the container proxies requests to it.
+
+### Platform Roadmap
+
+| Platform | Status | Technology |
+|----------|--------|-----------|
+| macOS (Apple Silicon) | Available | rumps + py2app + .pkg |
+| macOS (Intel) | Coming soon | Same as ARM, cross-compiled |
+| Linux (x64) | Coming soon | Likely AppIndicator + AppImage/deb |
+| Windows (x64) | Coming soon | Likely pystray + NSIS/.msi |
+
+---
+
+## Requirements
+
+- Docker and Docker Compose
+- (Optional) WCP Claude Agent for Local components &mdash; macOS Apple Silicon
+
+---
 
 ## Quick Start
 
-### 1. Run the widget container
-
 ```bash
-docker compose up -d
+docker run -d \
+  --name wcp-widget-claude \
+  -p 3746:3746 \
+  -v claude_data:/app/data \
+  -e CONTAINER_NAME=wcp-widget-claude \
+  --add-host host.docker.internal:host-gateway \
+  --restart unless-stopped \
+  penrithbeacon/wcp-widget-claude:latest
 ```
 
-The widget is now accessible at `http://localhost:3746/widget/`.
+---
 
-### 2. Install the host agent (optional)
+## Docker Compose
 
-Download from the widget's Settings page, or install manually:
+```yaml
+services:
+  wcp-widget-claude:
+    image: penrithbeacon/wcp-widget-claude:1.1.0-wcp2.1.0
+    container_name: wcp-widget-claude
+    ports:
+      - "3746:3746"
+    volumes:
+      - claude_data:/app/data
+    environment:
+      - CONTAINER_NAME=wcp-widget-claude
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  claude_data:
+```
+
+---
+
+## Host Agent Installation
+
+### From the Widget (recommended)
+
+1. Add the Claude Analytics widget to your dashboard
+2. Open the **Settings** component
+3. Download the installer for your platform
+4. Run the installer &mdash; the agent appears in your menu bar
+5. Click **Test** in Settings to verify the connection
+
+### From Source
 
 ```bash
 cd agents/mac-arm64
-chmod +x install.sh
-./install.sh
+bash build-app.sh
+open WCP-Claude-Agent.pkg
 ```
 
-The agent runs on `127.0.0.1:3747` (localhost only) and auto-starts on login.
+---
 
-### 3. Configure in Settings
+## Configuration
 
-Open the Settings instrument and:
-- Add your Anthropic Admin API key (from [console.anthropic.com](https://console.anthropic.com/settings/admin-keys))
-- Test the host agent connection
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Agent URL | Host agent address | `http://host.docker.internal:3747` |
+| Admin API Key | Anthropic Admin API key (Teams/Enterprise only) | &mdash; |
 
-## Security
+---
 
-This widget is designed for public distribution. Security measures:
+## WCP Endpoints
 
-- **No secrets in code** — API keys and agent URLs are stored in the Docker volume (`/app/data/settings.json`), never in source
-- **Masked credentials** — GET requests to `/widget/api/settings` return `••••••••` for the API key
-- **Host agent is localhost-only** — binds to `127.0.0.1`, not accessible from the network
-- **Non-root container** — the Docker image runs as `appuser`, not root
-- **No credential forwarding** — the widget never sends stored credentials to any third party; it proxies requests server-side
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /widget/` | GET | Compact widget (default component) |
+| `GET /widget/wcp` | GET | WCP manifest |
+| `GET /widget/health` | GET | Health check |
+| `GET /widget/icon.svg` | GET | Widget icon |
+| `GET /widget/local` | GET | Local: Environment component |
+| `GET /widget/sessions` | GET | Local: Sessions component |
+| `GET /widget/usage` | GET | API: Usage component |
+| `GET /widget/productivity` | GET | API: Productivity component |
+| `GET /widget/settings` | GET | Settings component |
+| `GET /widget/logs` | GET | Log Viewer component |
+| `GET /widget/help` | GET | Help component |
 
-## WCP Specification
+---
 
-This widget implements [Widget Context Protocol 2.1.0](https://widgetcontextprotocol.com):
+## Tags
 
-- **Manifest**: `GET /widget/wcp` — full WCP manifest with 5 components
-- **Health**: `GET /widget/health` — container health check
-- **Directory**: `GET /wcp` — container-level widget directory
-- **Theme**: Responds to `wcp:theme` and `wcp:request-theme` postMessage events
-- **Ready**: Posts `wcp:ready` on instrument load
-- **Publish/Unpublish**: `POST/DELETE /widget/publish` — SPA hosting support
+| Tag | Widget Version | WCP Version | Notes |
+|-----|---------------|-------------|-------|
+| `1.1.0-wcp2.1.0` | 1.1.0 | 2.1.0 | First public release (experimental) |
+| `latest` | 1.1.0 | 2.1.0 | &mdash; |
 
-## Project Structure
+---
 
-```
-widgets/claude/
-├── Dockerfile                 # Multi-stage build
-├── docker-compose.yml         # Container orchestration
-├── requirements.txt           # Python dependencies (flask, requests)
-├── src/
-│   ├── app.py                 # Flask app — routes, WCP manifest, API proxies
-│   ├── templates/
-│   │   ├── widget.html        # Landing page (instrument selector)
-│   │   ├── usage.html         # Token usage + cost cards
-│   │   ├── productivity.html  # Developer activity + model breakdown
-│   │   ├── local.html         # MCP servers + plugins + system
-│   │   ├── sessions.html      # Recent sessions list
-│   │   └── settings.html      # API key + agent config + downloads
-│   └── published/             # SPA output directory (auto-managed)
-├── agents/
-│   └── mac-arm64/
-│       ├── agent.py           # Host agent Flask app
-│       ├── install.sh         # launchd installer
-│       └── requirements.txt   # Agent dependencies (flask only)
-└── README.md                  # This file
-```
+## Links
 
-## Tutorial: Building a WCP Widget with a Host Agent
-
-### Pattern 1: Cloud API Proxy
-
-The widget proxies cloud API calls through its Flask backend rather than calling from the browser. This keeps API keys server-side:
-
-```python
-@app.route('/widget/api/cloud/usage')
-def api_cloud_usage():
-    headers = _admin_headers()  # Reads key from settings file
-    if not headers:
-        return jsonify({'success': False, 'error': 'Not configured'})
-    r = requests.get('https://api.anthropic.com/v1/...', headers=headers)
-    return jsonify({'success': True, 'data': r.json()})
-```
-
-### Pattern 2: Host Agent Communication
-
-The container can't access the host filesystem directly. A lightweight agent running natively bridges this gap:
-
-```
-Container (port 3746) → host.docker.internal:3747 → Agent → ~/.claude/
-```
-
-The agent only binds to localhost — Docker's `host.docker.internal` DNS lets the container reach it without exposing it to the network.
-
-### Pattern 3: Graceful Degradation
-
-Each instrument checks what's configured and shows appropriate UI:
-
-- **Both configured** → Full data
-- **Only cloud API** → Cloud cards populate; local cards show "Install agent" prompt
-- **Only agent** → Local cards populate; cloud cards show "Add API key" prompt
-- **Neither** → All cards show setup prompts linking to Settings
-
-### Pattern 4: WCP Theme Integration
-
-Every template includes the standard WCP theme boilerplate:
-
-```javascript
-function _applyThemeVars(vars) {
-  for (const [k, v] of Object.entries(vars))
-    document.documentElement.style.setProperty(k, v);
-}
-window.parent?.postMessage({ type: 'wcp:ready' }, '*');
-window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
-window.addEventListener('message', e => {
-  if (e.data?.type === 'wcp:theme' && e.data.vars) _applyThemeVars(e.data.vars);
-});
-```
-
-All CSS uses `var(--wcp-color-*, fallback)` so themes apply instantly.
-
-## Development
-
-```bash
-# Run locally without Docker (for development)
-cd src && python app.py
-
-# Run agent locally
-cd agents/mac-arm64 && python agent.py
-
-# Build Docker image
-docker compose build
-
-# View logs
-docker compose logs -f
-```
-
-## License
-
-MIT
+- [Penrith Beacon](https://penrithbeacon.com)
+- [Widget Context Protocol](https://widgetcontextprotocol.com)
+- [Docker Hub](https://hub.docker.com/r/penrithbeacon/wcp-widget-claude)
+- [GitHub (public)](https://github.com/penrithbeacon/wcp-widget-claude)

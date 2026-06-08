@@ -59,7 +59,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
 .status-pending{color:var(--wcp-color-text-muted,#8b949e);}
 
 /* ── Downloads ───────────────────────────────────────────────────── */
-.download-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.download-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
 .download-card{background:var(--wcp-color-surface-raised,#1c2128);border:1px solid var(--wcp-color-border,#30363d);
   border-radius:6px;padding:12px;text-align:center;}
 .download-card-title{font-size:11px;font-weight:600;margin-bottom:4px;}
@@ -67,6 +67,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
 .download-card .btn{font-size:11px;padding:5px 10px;}
 .download-card-disabled{opacity:.4;}
 .download-card-disabled .btn{cursor:default;pointer-events:none;}
+
+/* ── Install box ─────────────────────────────────────────────── */
+.install-box{background:var(--wcp-color-surface-raised,#1c2128);border:1px solid var(--wcp-color-border,#30363d);
+  border-radius:6px;padding:12px;}
+.install-platform{font-size:11px;font-weight:600;margin-bottom:8px;}
+.install-cmd-wrap{display:flex;gap:8px;align-items:flex-start;}
+.install-cmd{flex:1;font-family:'SF Mono',SFMono-Regular,Consolas,monospace;font-size:11px;
+  background:var(--wcp-color-bg,#0d1117);border:1px solid var(--wcp-color-border,#30363d);
+  border-radius:4px;padding:8px 10px;color:var(--wcp-color-text,#e6edf3);
+  word-break:break-all;line-height:1.5;display:block;user-select:all;}
+.install-copy{flex-shrink:0;font-size:11px;padding:6px 10px;}
+.install-platforms-note{margin-top:8px;}
 
 .help-text{font-size:11px;color:var(--wcp-color-text-muted,#8b949e);line-height:1.5;margin-top:8px;}
 </style>
@@ -81,9 +93,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
       </div>
     </div>
     <div class="card-body">
+      <!-- Experimental notice -->
+      <div style="background:rgba(210,153,34,.08);border:1px solid var(--wcp-color-warning,#d29922);border-radius:6px;padding:12px 14px;margin-bottom:20px;">
+        <div style="font-size:11px;font-weight:700;color:var(--wcp-color-warning,#d29922);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">
+          ⚠ Experimental Widget
+        </div>
+        <div style="font-size:11px;line-height:1.6;color:var(--wcp-color-text-muted,#8b949e);">
+          This widget is published as a <strong style="color:var(--wcp-color-text,#e6edf3);">reference implementation</strong> demonstrating
+          a WCP widget with a companion host agent installed on the operating system.<br><br>
+          <strong style="color:var(--wcp-color-success,#3fb950);">Production-ready:</strong> Local components (Environment, Sessions, Log Viewer) and the macOS Apple Silicon host agent are fully tested.<br>
+          <strong style="color:var(--wcp-color-warning,#d29922);">Untested:</strong> Cloud API components (Usage, Productivity) require an Anthropic Teams or Enterprise Admin API key. These have not been tested &mdash; use at your own risk. They are read-only and informational.
+        </div>
+      </div>
+
       <!-- Cloud API section -->
       <div class="section">
-        <div class="section-title">Cloud API (Anthropic Admin) <span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:var(--wcp-color-warning,#d29922);color:#000;margin-left:8px;vertical-align:middle;">ALPHA</span></div>
+        <div class="section-title">Cloud API (Anthropic Admin) <span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;background:var(--wcp-color-warning,#d29922);color:#000;margin-left:8px;vertical-align:middle;">UNTESTED</span></div>
         <div class="field">
           <div class="field-label">Admin API Key</div>
           <div class="field-row">
@@ -119,7 +144,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
           <div class="status" id="status-agent"></div>
           <div class="help-text">
             The host agent provides local data (MCP servers, plugins, sessions, system info).
-            Download and install it below, then test the connection.
+            Download and install it below, then test the connection.<br><br>
+            <strong>Changed the port?</strong> If you changed the agent port from the menu bar,
+            update the URL above to match (e.g. <code style="background:var(--wcp-color-surface-raised,#1c2128);padding:1px 4px;border-radius:3px;">http://host.docker.internal:3748</code>).
           </div>
         </div>
 
@@ -130,7 +157,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
             <div class="download-card">
               <div class="download-card-title">macOS (Apple Silicon)</div>
               <div class="download-card-desc">M1 / M2 / M3 / M4</div>
-              <a class="btn" href="/widget/api/agents/mac-arm64" download>Download</a>
+              <a class="btn" href="/widget/api/agents/mac-arm64" download="WCP-Claude-Agent.pkg">Download .pkg</a>
             </div>
             <div class="download-card download-card-disabled">
               <div class="download-card-title">macOS (Intel)</div>
@@ -142,10 +169,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
               <div class="download-card-desc">Coming soon</div>
               <span class="btn">N/A</span>
             </div>
+            <div class="download-card download-card-disabled">
+              <div class="download-card-title">Windows (x64)</div>
+              <div class="download-card-desc">Coming soon</div>
+              <span class="btn">N/A</span>
+            </div>
           </div>
           <div class="help-text" style="margin-top:10px;">
-            Extract the zip and run <code style="background:var(--wcp-color-surface-raised,#1c2128);padding:1px 5px;border-radius:3px;">./install.sh</code>
-            to install the agent as a background service. It runs on port 3747 by default.
+            Double-click the downloaded .pkg to launch the installer wizard.
+            The agent runs on port 3747 (localhost only) and starts automatically on login.
           </div>
           <div class="help-text" style="margin-top:10px;border-top:1px solid var(--wcp-color-border,#30363d);padding-top:10px;">
             <strong>Compatibility:</strong> The host agent reads Claude Code's local session and
@@ -154,11 +186,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--wcp-color-bg,#
           </div>
         </div>
       </div>
+
+      <!-- Version footer -->
+      <div style="margin-top:20px;padding-top:12px;border-top:1px solid var(--wcp-color-border,#30363d);text-align:center;">
+        <span style="font-size:10px;color:var(--wcp-color-text-muted,#8b949e);">Claude Analytics v{{ manifest.version }} &middot; WCP {{ manifest.wcp }} &middot; Agent v1.1.1</span>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
+
 // ── Load current settings ────────────────────────────────────────────────────
 
 async function loadSettings() {
@@ -192,6 +230,10 @@ async function saveApiKey() {
     if (j.success) {
       statusEl.className = 'status status-ok';
       statusEl.textContent = '✓ Saved';
+      // Show API components now that a key is configured
+      window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+        'claude-api-usage': true, 'claude-api-productivity': true,
+      }}, '*');
     } else {
       throw new Error(j.error || 'Save failed');
     }
@@ -289,6 +331,11 @@ function _applyThemeVars(vars) {
     document.documentElement.style.setProperty(k, v);
 }
 window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+// WCP Conditional Visibility — hide API components when no admin key is configured
+window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+  'claude-api-usage': {{ 'true' if has_api_key else 'false' }},
+  'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
+}}, '*');
 window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
 window.addEventListener('message', e => {
   if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);

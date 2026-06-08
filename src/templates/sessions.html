@@ -107,11 +107,7 @@ function timeAgo(ts) {
 function shortenPath(p) {
   if (!p) return '~';
   // Replace home dir with ~
-  p = p.replace(/^\/Users\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~');
-  // If still long, show last 2 segments
-  const parts = p.split('/');
-  if (parts.length > 4) return '…/' + parts.slice(-2).join('/');
-  return p;
+  return p.replace(/^\/Users\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~');
 }
 
 async function loadSessions() {
@@ -145,7 +141,7 @@ function renderSessions(data) {
     html += `<div class="session-row">
       <span class="session-icon">${icon}</span>
       <div class="session-info">
-        <div class="session-dir">${esc(shortenPath(s.cwd || s.working_directory))}</div>
+        <div class="session-dir" title="${esc(s.cwd || s.working_directory || '')}">${esc(shortenPath(s.cwd || s.working_directory))}</div>
         <div class="session-meta">${esc(s.kind || 'session')}</div>
       </div>
       <span class="session-time">${timeAgo(s.modified || s.updated_at)}</span>
@@ -161,6 +157,11 @@ function _applyThemeVars(vars) {
     document.documentElement.style.setProperty(k, v);
 }
 window.parent?.postMessage({ type: 'wcp:ready' }, '*');
+// WCP Conditional Visibility — hide API components when no admin key is configured
+window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
+  'claude-api-usage': {{ 'true' if has_api_key else 'false' }},
+  'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
+}}, '*');
 window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
 window.addEventListener('message', e => {
   if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);
