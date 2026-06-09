@@ -107,7 +107,7 @@ WCP_MANIFEST = {
     'wcp':     '2.1.0',
     'uuid':    'bb43c314-4e04-49dd-8bc2-615d3138538d',
     'name':    'Claude Analytics',
-    'version': '1.1.0',
+    'version':     '1.2.0',
     'description': (
         'Claude Code usage analytics, cost tracking, and developer productivity metrics. '
         'Cloud data via Anthropic Admin API; local data via optional host agent.'
@@ -117,7 +117,7 @@ WCP_MANIFEST = {
     'container': {
         'image':            'docker.io/penrithbeacon/wcp-widget-claude',
         'source':           {'type': 'registry'},
-        'tag':              '1.1.0-wcp2.1.0',
+        'tag':              '1.2.0-wcp2.1.0',
         'port':             3746,
         'volumes':          [{'name': 'claude_data', 'mountPath': '/app/data'}],
         'defaultLifecycle': 'always',
@@ -261,6 +261,12 @@ def widget_wcp():
     m = dict(WCP_MANIFEST)
     m['web'] = {'published': os.path.exists(PUBLISHED_PATH)}
     return jsonify(m)
+
+@app.route('/widget/index')
+def widget_index():
+    return render_template('index-page.html', manifest=WCP_MANIFEST, jsonld=WIDGET_JSONLD,
+        wcp_instance_id=get_instance_id(),
+        wcp_orchestration_id=get_orchestration_id(), wcp_application_id=get_application_id())
 
 @app.route('/widget/health')
 def widget_health():

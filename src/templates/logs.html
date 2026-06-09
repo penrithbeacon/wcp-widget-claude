@@ -326,6 +326,9 @@ window.parent?.postMessage({ type: 'wcp:set-component-visibility', components: {
   'claude-api-productivity': {{ 'true' if has_api_key else 'false' }},
 }}, '*');
 window.parent?.postMessage({ type: 'wcp:request-theme' }, '*');
+if (window.location.hash.startsWith('#wcp-theme=')) {
+  try { _applyThemeVars(JSON.parse(atob(window.location.hash.slice(11)))); } catch {}
+}
 window.addEventListener('message', e => {
   if (e.data?.type === 'wcp:context' && e.data.theme) _applyThemeVars(e.data.theme);
   if (e.data?.type === 'wcp:theme' && e.data.vars)    _applyThemeVars(e.data.vars);
